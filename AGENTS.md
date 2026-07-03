@@ -68,8 +68,9 @@ tools without native skills, follow the matching `SKILL.md` manually. The
 conventions in `blueprint/context/` apply however a step is invoked.
 
 Optional explicit-only skill: `autopilot` can run one bounded spec/build/check
-pass when directly invoked. It stops before `/complete`, commit, merge, push,
-deploy, or destructive actions.
+pass when directly invoked. It may create checkpoint commits on the feature or
+fix branch after passing steps. It stops before `/complete`, merge, push, deploy,
+or destructive actions.
 
 ## Commands
 

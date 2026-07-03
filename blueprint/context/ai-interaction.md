@@ -86,8 +86,9 @@ project has them). If the build or tests fail, fix the issues first.
 
 Autopilot exists only as an explicit opt-in command: `/autopilot` or
 `$autopilot`. Do not suggest it as the default next action. When invoked, it runs
-one bounded pass without pausing after each passing implementation step. It stops
-before `/complete`, commit, merge, push, deploy, publish, destructive actions, or
+one bounded pass without pausing after each passing implementation step. It may
+create checkpoint commits on the feature or fix branch after passing steps. It
+stops before `/complete`, merge, push, deploy, publish, destructive actions, or
 hiding failing checks.
 
 ## Branching

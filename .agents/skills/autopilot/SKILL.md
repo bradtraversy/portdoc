@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Optional explicit Blueprint mode for one bounded spec/build/check pass. It can pick or resume the current feature, write the spec when needed, create or reuse the branch, implement small steps, run build/tests/checks, self-review the diff, and stop with a review packet. It never completes, commits, merges, pushes, deploys, publishes, sends, or performs destructive actions without explicit approval. Use only when the user explicitly runs /autopilot, invokes $autopilot, or directly asks for Autopilot.
+description: Optional explicit Blueprint mode for one bounded spec/build/check pass. It can pick or resume the current feature, write the spec when needed, create or reuse the branch, implement small steps, run build/tests/checks, create checkpoint commits after passing steps, self-review the diff, and stop with a review packet. It never completes, merges, pushes, deploys, publishes, sends, or performs destructive actions without explicit approval. Use only when the user explicitly runs /autopilot, invokes $autopilot, or directly asks for Autopilot.
 ---
 
 # autopilot - optional Blueprint loop
@@ -21,6 +21,10 @@ and `/complete` remain the conservative default.
 
 Do not suggest Autopilot as the default next action. Use it only when the user
 explicitly asks for it.
+
+The explicit Autopilot request is permission to create checkpoint commits on the
+feature or fix branch after passing implementation steps. It is not permission to
+merge, push, deploy, publish, send, delete data, or run destructive actions.
 
 ## Input
 
@@ -128,6 +132,11 @@ For every step:
    - are tests present for new in-scope logic when the test gate is on?
 5. Fix obvious issues and rerun the failed checks.
 6. Mark the step checked in `current-feature.md` only after the step passes.
+7. Create a checkpoint commit on the feature or fix branch for the passing step.
+   Include the code, tests, and the updated `current-feature.md` checkbox. Use a
+   conventional message such as `feat: checkpoint mock snapshot route` or
+   `fix: checkpoint stale service filter`. Keep the message about the step, not
+   about Autopilot.
 
 Do not batch the whole feature into one large diff. If a step gets too large,
 split the step in `current-feature.md` and continue with the first smaller step.
@@ -151,6 +160,7 @@ Stop with a concise review packet:
 - changed files and why each changed
 - build/test/check commands run, with pass or fail
 - screenshots or output paths, when relevant
+- checkpoint commits created
 - self-review findings
 - unresolved risks or skipped checks
 - exact next action
@@ -164,7 +174,8 @@ If something failed, name the failing check and the next fix target.
 
 Stop immediately and report instead of continuing when Autopilot would need to:
 
-- commit, merge, delete a branch, push, deploy, publish, or send anything
+- commit on `main`, merge, delete a branch, push, deploy, publish, or send
+  anything
 - delete data, reset a database, run irreversible migrations, kill processes, or
   change system settings
 - install dependencies or use network access without the current tool's approval
@@ -176,7 +187,9 @@ Stop immediately and report instead of continuing when Autopilot would need to:
 ## Rules
 
 - One Autopilot run handles one feature or one fix.
-- Autopilot stops before `/complete`. It never commits or merges.
+- Autopilot creates checkpoint commits on the feature or fix branch after passing
+  steps.
+- Autopilot stops before `/complete`. It never merges.
 - The Blueprint files remain the state machine. Keep
   `current-feature.md` accurate as steps complete.
 - Follow `coding-standards.md`, `ai-interaction.md`, and `AGENTS.md`.
