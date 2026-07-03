@@ -1,0 +1,93 @@
+# AGENTS.md
+
+Instructions for AI coding agents working in this project. This is the cross-tool
+entry point: Codex, Cursor, GitHub Copilot, Gemini CLI, Aider, Zed, Windsurf, and
+others read `AGENTS.md`. Claude Code reads `CLAUDE.md`, which imports this file, so
+there is a single source of truth.
+
+## What this is
+
+PortDoc is a local dev server control panel: a single Rust binary that serves a
+web dashboard showing what dev apps are running, which project owns each port,
+and what URL to open. The backend is Rust (axum + clap + tokio) in `src/`; the
+frontend is React + TypeScript + Vite in `web/`, built to `web/dist`. The
+product spec lives in the vault at `Projects/PortDoc/SPEC.md`.
+
+This project is built with the **AI Coding Blueprint**, a workflow layer, not an
+app skeleton. To start a new project, scaffold the app first in an empty folder
+(create-next-app, Vite, etc.), then overlay these files on top. Never run a
+framework scaffolder inside a directory that already holds the blueprint files
+(`AGENTS.md`, `CLAUDE.md`, `.agents/`, `.claude/`, `blueprint/`); it fails
+because the directory isn't empty.
+
+New here? `README.md` explains the whole workflow.
+
+## Read these for full context
+
+- `blueprint/context/project-overview.md` - the project's source of truth
+- `blueprint/context/coding-standards.md` - conventions to follow
+- `blueprint/context/ai-interaction.md` - how to work with the user on this project
+- `blueprint/context/current-feature.md` - the one feature or fix being built right now
+
+## Workflow
+
+Build one feature or fix at a time, behind review gates. Each step's instructions
+are plain markdown skills any capable agent can read and follow. The workflow is
+exposed through tool-specific adapters:
+
+- Codex: `.agents/skills/<skill>/SKILL.md`
+- Claude Code: `.claude/skills/<skill>/SKILL.md`
+
+Unused adapters can be removed. Codex-only projects can delete `CLAUDE.md` and
+`.claude/`. Claude Code-only projects can delete `.agents/`, but should keep
+`AGENTS.md` because `CLAUDE.md` imports it.
+
+When changing shared workflow behavior, update the matching skill in both
+adapter folders so Codex and Claude Code stay aligned.
+
+Core skills:
+
+- `onboard` - tune commands, standards, ignore rules, and tool adapters after overlaying the Blueprint onto a freshly scaffolded or early project
+- `doctor` - read-only Blueprint health check for setup, adapters, plans, overview freshness, and workflow drift
+- `adopt` - bootstrap the Blueprint into an existing brownfield app with shipped features
+- `overview` - distill the two planning docs into `blueprint/context/project-overview.md`
+- `brief` - read-only briefing on an upcoming build-plan feature (scope, dependencies, size) before you spec it
+- `feature` - turn a build-plan item into a spec in `blueprint/context/current-feature.md`
+- `fix` - document an ad-hoc bug or change into `blueprint/context/current-feature.md`
+- `tests` - add or normalize unit testing and turn on the test gate
+- `implement` - build the current spec one small, reviewed step at a time
+- `check` - prove the current spec against the running app
+- `complete` - log it to `blueprint/history/features/` or `blueprint/history/fixes/`, then merge
+- `prototype` - optional, pre-build static mockups to lock the look
+- `status` - read-only progress summary, workflow drift warning, and suggested next action
+
+In Codex, invoke these as skills (`$onboard`, `$overview`, `$feature`,
+`$implement`, and so on) or ask naturally, such as "run the overview." In Claude
+Code, use the slash commands (`/onboard`, `/overview`, `/feature`, and so on). In
+tools without native skills, follow the matching `SKILL.md` manually. The
+conventions in `blueprint/context/` apply however a step is invoked.
+
+Optional explicit-only skill: `autopilot` can run one bounded spec/build/check
+pass when directly invoked. It stops before `/complete`, commit, merge, push,
+deploy, or destructive actions.
+
+## Commands
+
+Backend (repo root):
+
+- Typecheck: `cargo check`
+- Run server: `cargo run` (http://127.0.0.1:7788, `--port` to override)
+- Build: `cargo build` (release: `cargo build --release`)
+- Lint: `cargo clippy`
+- Format: `cargo fmt`
+
+Frontend (run from `web/`, npm with `package-lock.json`):
+
+- Dev server: `npm run dev` (Vite)
+- Build: `npm run build` (tsc + Vite, outputs to `web/dist`)
+- Lint: `npm run lint` (oxlint)
+- Preview build: `npm run preview`
+
+No test command is configured yet, so there is no test gate. Testing is opt-in:
+run `/tests` or `$tests` to add a runner and update this section with the real
+test commands.

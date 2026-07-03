@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PortDoc - Services</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: var(--text-base); line-height: 1.5; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .logo .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; justify-content: center; }
+  .logo .mark svg { width: 15px; height: 15px; }
+  .logo em { color: var(--accent); font-style: normal; }
+  .addr { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+  .topbar .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .refreshed { color: var(--faint); font-size: var(--text-xs); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 5px 12px; font: 500 var(--text-sm) var(--font-sans); cursor: pointer; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.sm { padding: 3px 9px; font-size: var(--text-xs); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--text); border-color: var(--border-strong); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .btn.ghost[disabled]:hover { color: var(--muted); border-color: transparent; }
+
+  .tabs { display: flex; gap: 2px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { white-space: nowrap; }
+  .tab { padding: 9px 14px; color: var(--muted); font-size: var(--text-sm); font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab .count { border-radius: 999px; padding: 0 6px; font-size: 10px; margin-left: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .tab .count.danger { color: var(--danger); background: var(--danger-soft); border-color: rgba(248,81,73,.35); }
+
+  .page { max-width: 1280px; margin: 0 auto; padding: 20px 20px 48px; display: grid; gap: 12px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 8px; font-size: var(--text-xs); font-weight: 500; border: 1px solid var(--border-strong); color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  .badge.ok { color: var(--ok); background: var(--ok-soft); border-color: rgba(63,185,80,.3); }
+  .badge.ok .dot { background: var(--ok); }
+  .badge.warn { color: var(--warn); background: var(--warn-soft); border-color: rgba(227,179,65,.3); }
+  .badge.warn .dot { background: var(--warn); }
+  .badge.danger { color: var(--danger); background: var(--danger-soft); border-color: rgba(248,81,73,.3); }
+  .badge.danger .dot { background: var(--danger); }
+  .badge.info { color: var(--info); background: var(--info-soft); border-color: rgba(88,166,255,.3); }
+  .badge.info .dot { background: var(--info); }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .search { flex: 1; min-width: 220px; max-width: 340px; display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 5px 10px; color: var(--faint); font-size: var(--text-sm); }
+  .search .hint { margin-left: auto; font-family: var(--font-mono); font-size: 10px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 5px; }
+  .chip { border-radius: 999px; padding: 3px 11px; font-size: var(--text-xs); font-weight: 500; border: 1px solid var(--border-strong); color: var(--muted); background: transparent; cursor: pointer; }
+  .chip:hover { color: var(--text); border-color: var(--faint); }
+  .chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .chip .n { opacity: .7; margin-left: 3px; }
+
+  .tablewrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+  th { text-align: left; font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--border-strong); white-space: nowrap; }
+  td { padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  tr.conflict td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+  tr.stale .proc, tr.stale .cmd { color: var(--muted); }
+  td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+  td.port { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .proc { font-weight: 600; }
+  .cmd { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .proj { font-weight: 500; }
+  .proj .path { display: block; font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); font-weight: 400; }
+  td.age { color: var(--muted); font-size: var(--text-xs); }
+  .actioncell { display: flex; gap: 2px; justify-content: flex-end; align-items: center; }
+  .rowactions { display: flex; gap: 2px; visibility: hidden; }
+  tr:hover .rowactions { visibility: visible; }
+  .badge .icon { width: 11px; height: 11px; }
+
+  .foot { color: var(--faint); font-size: var(--text-xs); padding: 0 4px; }
+
+  .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn.sm .icon { width: 12px; height: 12px; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; }
+  .tab .icon { width: 13px; height: 13px; }
+  .tab .count { margin-left: 0; }
+  .refreshed { display: inline-flex; align-items: center; gap: 5px; }
+  .refreshed .icon { width: 12px; height: 12px; }
+  .search .icon { width: 13px; height: 13px; }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="logo"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 12 7.5 12 10 6.5 13.5 17.5 16 12 21 12"/></svg></span><span>Port<em>Doc</em></span></div>
+  <span class="addr">127.0.0.1:7788</span>
+  <div class="right">
+    <span class="refreshed"><svg class="icon"><use href="#i-clock"/></svg>snapshot 4s ago</span>
+    <button class="btn"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <span class="tab"><svg class="icon"><use href="#i-dashboard"/></svg>Dashboard</span>
+  <span class="tab"><svg class="icon"><use href="#i-folder"/></svg>Projects <span class="count">5</span></span>
+  <span class="tab active"><svg class="icon"><use href="#i-server"/></svg>Services <span class="count">12</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-alert"/></svg>Conflicts <span class="count danger">2</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-box"/></svg>Docker <span class="count">2</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-sliders"/></svg>Advanced</span>
+</nav>
+
+<main class="page">
+
+  <div class="toolbar">
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg>Filter by name, port, project, command<span class="hint">/</span></div>
+    <button class="chip active">All <span class="n">12</span></button>
+    <button class="chip">Frameworks <span class="n">6</span></button>
+    <button class="chip">APIs <span class="n">1</span></button>
+    <button class="chip">Databases <span class="n">3</span></button>
+    <button class="chip">Docker <span class="n">2</span></button>
+    <button class="chip">LAN visible <span class="n">1</span></button>
+    <button class="chip">Stale <span class="n">2</span></button>
+    <button class="chip">Conflicts <span class="n">2</span></button>
+    <button class="chip">Unknown <span class="n">1</span></button>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th><th>Port</th><th>PID</th><th>Command</th><th>Project</th><th>Exposure</th><th>Status</th><th>Age</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="conflict stale">
+          <td><span class="proc">next-server</span> <span class="badge">Next.js</span></td>
+          <td class="port">:3000</td>
+          <td class="num">12904</td>
+          <td><span class="cmd">next-server (v15.3.2)</span></td>
+          <td class="proj">startdev<span class="path">~/Code/startdev</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge danger"><span class="dot"></span>conflict</span> <span class="badge warn"><span class="dot"></span>stale</span></td>
+          <td class="age">6d</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr class="conflict">
+          <td><span class="proc">next dev</span> <span class="badge">Next.js</span></td>
+          <td class="port">:3001</td>
+          <td class="num">84117</td>
+          <td><span class="cmd">node ~/Code/startdev/node_modules/.bin/next dev</span></td>
+          <td class="proj">startdev<span class="path">~/Code/startdev</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">2h</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">convex dev</span> <span class="badge">Convex</span></td>
+          <td class="port">:3210</td>
+          <td class="num">84503</td>
+          <td><span class="cmd">npx convex dev</span></td>
+          <td class="proj">startdev<span class="path">~/Code/startdev</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">2h</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">prisma studio</span> <span class="badge">Prisma</span></td>
+          <td class="port">:5555</td>
+          <td class="num">84990</td>
+          <td><span class="cmd">node ~/Code/startdev/node_modules/.bin/prisma studio</span></td>
+          <td class="proj">startdev<span class="path">~/Code/startdev</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">45m</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">portdoc</span> <span class="badge">Rust</span></td>
+          <td class="port">:7788</td>
+          <td class="num">90312</td>
+          <td><span class="cmd">target/debug/portdoc --port 7788</span></td>
+          <td class="proj">portdoc<span class="path">~/Code/portdoc</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span> <span class="badge" title="PortDoc will not stop itself"><svg class="icon"><use href="#i-shield"/></svg>protected</span></td>
+          <td class="age">4m</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost" disabled title="Protected - PortDoc will not stop itself"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr class="conflict">
+          <td><span class="proc">vite</span> <span class="badge">Vite</span></td>
+          <td class="port">:5174</td>
+          <td class="num">90355</td>
+          <td><span class="cmd">node ~/Code/portdoc/web/node_modules/.bin/vite</span></td>
+          <td class="proj">portdoc<span class="path">~/Code/portdoc/web</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">4m</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">vite --host</span> <span class="badge">Vite</span></td>
+          <td class="port">:5173</td>
+          <td class="num">88231</td>
+          <td><span class="cmd">node ~/Code/react-crash-2026/node_modules/.bin/vite --host</span></td>
+          <td class="proj">react-crash-2026<span class="path">~/Code/react-crash-2026</span></td>
+          <td><span class="badge warn"><span class="dot"></span>LAN</span></td>
+          <td><span class="badge warn"><span class="dot"></span>stale</span></td>
+          <td class="age">3d</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">astro dev</span> <span class="badge">Astro</span></td>
+          <td class="port">:4321</td>
+          <td class="num">71240</td>
+          <td><span class="cmd">node ~/Code/bradtraversy.dev/node_modules/.bin/astro dev</span></td>
+          <td class="proj">bradtraversy.dev<span class="path">~/Code/bradtraversy.dev</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">6h</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">nodemon</span> <span class="badge">Express</span></td>
+          <td class="port">:5000</td>
+          <td class="num">76001</td>
+          <td><span class="cmd">node ~/Code/api-playground/server.js</span></td>
+          <td class="proj">api-playground<span class="path">~/Code/api-playground</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">1h</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">postgres:16</span> <span class="badge">Postgres</span></td>
+          <td class="port">:5432</td>
+          <td class="num">2214</td>
+          <td><span class="cmd">docker-proxy -host-port 5432 · pg-startdev</span></td>
+          <td class="proj">Docker<span class="path">container pg-startdev</span></td>
+          <td><span class="badge info"><span class="dot"></span>docker</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">2d</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost" disabled title="No local URL detected"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost" disabled title="Managed by Docker - stop from the Docker tab"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr>
+          <td><span class="proc">redis:7</span> <span class="badge">Redis</span></td>
+          <td class="port">:6379</td>
+          <td class="num">2419</td>
+          <td><span class="cmd">docker-proxy -host-port 6379 · redis-cache</span></td>
+          <td class="proj">Docker<span class="path">container redis-cache</span></td>
+          <td><span class="badge info"><span class="dot"></span>docker</span></td>
+          <td><span class="badge ok"><span class="dot"></span>running</span></td>
+          <td class="age">2d</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost" disabled title="No local URL detected"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost" disabled title="Managed by Docker - stop from the Docker tab"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+        <tr class="stale">
+          <td><span class="proc">node</span> <span class="badge">unknown</span></td>
+          <td class="port">:8080</td>
+          <td class="num">31337</td>
+          <td><span class="cmd">node server.js</span></td>
+          <td class="proj">old-demo<span class="path">~/Code/old-demo</span></td>
+          <td><span class="badge"><span class="dot"></span>local</span></td>
+          <td><span class="badge warn"><span class="dot"></span>stale</span></td>
+          <td class="age">6d</td>
+          <td><div class="actioncell"><span class="rowactions"><button class="btn sm ghost"><svg class="icon"><use href="#i-open"/></svg>Open</button><button class="btn sm ghost"><svg class="icon"><use href="#i-stop"/></svg>Stop</button></span><button class="btn sm ghost" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">12 services · sorted by project · hover a row for actions</p>
+
+</main>
+</body>
+</html>

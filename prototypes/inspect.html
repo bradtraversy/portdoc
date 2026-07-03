@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PortDoc - Inspect drawer + safe stop</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: var(--text-base); line-height: 1.5; overflow: hidden; height: 100vh; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .logo .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; justify-content: center; }
+  .logo .mark svg { width: 15px; height: 15px; }
+  .logo em { color: var(--accent); font-style: normal; }
+  .addr { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+  .topbar .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .refreshed { color: var(--faint); font-size: var(--text-xs); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 5px 12px; font: 500 var(--text-sm) var(--font-sans); cursor: pointer; }
+  .btn:hover { border-color: var(--faint); }
+  .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+  .btn.accent:hover { background: var(--accent-hover); }
+  .btn.danger { background: var(--danger-soft); color: var(--danger); border-color: rgba(248,81,73,.35); }
+  .btn.danger.solid { background: var(--danger); color: #fff; border-color: transparent; font-weight: 600; }
+  .btn.sm { padding: 3px 9px; font-size: var(--text-xs); }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--text); border-color: var(--border-strong); }
+  .btn.block { width: 100%; justify-content: center; }
+
+  .tabs { display: flex; gap: 2px; padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { white-space: nowrap; }
+  .tab { padding: 9px 14px; color: var(--muted); font-size: var(--text-sm); font-weight: 500; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab .count { border-radius: 999px; padding: 0 6px; font-size: 10px; margin-left: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .tab .count.danger { color: var(--danger); background: var(--danger-soft); border-color: rgba(248,81,73,.35); }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 20px; display: grid; gap: var(--gap); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 8px; font-size: var(--text-xs); font-weight: 500; border: 1px solid var(--border-strong); color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+  .badge.ok { color: var(--ok); background: var(--ok-soft); border-color: rgba(63,185,80,.3); }
+  .badge.ok .dot { background: var(--ok); }
+  .badge.warn { color: var(--warn); background: var(--warn-soft); border-color: rgba(227,179,65,.3); }
+  .badge.warn .dot { background: var(--warn); }
+  .badge.danger { color: var(--danger); background: var(--danger-soft); border-color: rgba(248,81,73,.3); }
+  .badge.danger .dot { background: var(--danger); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat .label { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .stat .value { font-size: var(--text-xl); font-weight: 700; margin-top: 4px; }
+
+  .project { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .project-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .project-head .name { font-weight: 600; }
+  .project-head .path { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--faint); }
+  .service { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 14px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+  .service:last-child { border-bottom: 0; }
+  .service.selected { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  .service .port { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600; text-align: right; }
+  .service .info { min-width: 0; }
+  .service .main { display: flex; align-items: baseline; gap: 8px; }
+  .service .proc { font-weight: 600; font-size: var(--text-sm); }
+  .service .url { font-family: var(--font-mono); font-size: var(--text-xs); }
+  .service .sub { display: block; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .service .end { display: flex; gap: 6px; }
+
+  /* drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(9, 10, 12, 0.55); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; background: var(--surface); border-left: 1px solid var(--border-strong); display: flex; flex-direction: column; box-shadow: -24px 0 48px rgba(0,0,0,.4); }
+  .drawer-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .drawer-head .title { font-weight: 700; font-size: var(--text-lg); font-family: var(--font-mono); }
+  .drawer-head .close { margin-left: auto; }
+  .drawer-body { padding: 16px 18px; overflow-y: auto; display: grid; gap: 16px; }
+  .drawer .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: 4px 12px; font-size: var(--text-sm); }
+  .kv dt { color: var(--faint); }
+  .kv dd { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text); overflow-wrap: anywhere; }
+  .kv dd.dim { color: var(--muted); }
+
+  .drawer h3 { font-size: var(--text-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dangerzone { border: 1px solid rgba(248,81,73,.3); background: var(--danger-soft); border-radius: var(--radius); padding: 12px; display: grid; gap: 8px; }
+  .dangerzone p { font-size: var(--text-xs); color: var(--muted); }
+
+  /* confirm dialog */
+  .modal-scrim { position: fixed; inset: 0; background: rgba(9, 10, 12, 0.6); display: flex; align-items: center; justify-content: center; }
+  .modal { width: 460px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0,0,0,.5); overflow: hidden; }
+  .modal-head { padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .modal-head .icon { color: var(--danger); }
+  .modal-body { padding: 16px 18px; display: grid; gap: 12px; font-size: var(--text-sm); }
+  .modal-body .facts { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .modal-body .plan { color: var(--muted); font-size: var(--text-xs); }
+  .modal-body .plan strong { color: var(--text); }
+  .modal-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+  .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .btn.sm .icon { width: 12px; height: 12px; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; }
+  .tab .icon { width: 13px; height: 13px; }
+  .tab .count { margin-left: 0; }
+  .refreshed { display: inline-flex; align-items: center; gap: 5px; }
+  .refreshed .icon { width: 12px; height: 12px; }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.73 5.08a10.74 10.74 0 0 1 11.2 6.57 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49"/><path d="M14.08 14.16a3 3 0 0 1-4.24-4.24"/><path d="M17.48 17.5a10.75 10.75 0 0 1-15.42-5.15 1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="logo"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 12 7.5 12 10 6.5 13.5 17.5 16 12 21 12"/></svg></span><span>Port<em>Doc</em></span></div>
+  <span class="addr">127.0.0.1:7788</span>
+  <div class="right">
+    <span class="refreshed"><svg class="icon"><use href="#i-clock"/></svg>snapshot 4s ago</span>
+    <button class="btn"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <span class="tab active"><svg class="icon"><use href="#i-dashboard"/></svg>Dashboard</span>
+  <span class="tab"><svg class="icon"><use href="#i-folder"/></svg>Projects <span class="count">5</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-server"/></svg>Services <span class="count">12</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-alert"/></svg>Conflicts <span class="count danger">2</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-box"/></svg>Docker <span class="count">2</span></span>
+  <span class="tab"><svg class="icon"><use href="#i-sliders"/></svg>Advanced</span>
+</nav>
+
+<main class="page">
+  <section class="stats">
+    <div class="stat"><div class="label">Running services</div><div class="value">12</div></div>
+    <div class="stat"><div class="label">Projects active</div><div class="value">5</div></div>
+    <div class="stat"><div class="label">Port conflicts</div><div class="value" style="color: var(--danger)">2</div></div>
+    <div class="stat"><div class="label">LAN visible</div><div class="value" style="color: var(--warn)">1</div></div>
+  </section>
+
+  <section class="project">
+    <div class="project-head">
+      <span class="name">react-crash-2026</span>
+      <span class="path">~/Code/react-crash-2026</span>
+    </div>
+    <div class="service selected">
+      <span class="port">:5173</span>
+      <div class="info">
+        <div class="main">
+          <span class="proc">vite --host</span>
+          <a class="url" href="#">http://192.168.1.44:5173</a>
+        </div>
+        <span class="sub">PID 88231 · node ~/Code/react-crash-2026/node_modules/.bin/vite --host</span>
+      </div>
+      <div class="end">
+        <span class="badge warn"><span class="dot"></span>LAN visible</span>
+        <span class="badge warn"><span class="dot"></span>stale · 3d</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="scrim"></div>
+
+<aside class="drawer">
+  <div class="drawer-head">
+    <span class="title">vite --host</span>
+    <span class="badge warn"><span class="dot"></span>stale · 3d</span>
+    <button class="btn sm ghost close"><svg class="icon"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="drawer-body">
+    <div class="badges">
+      <span class="badge ok"><span class="dot"></span>running</span>
+      <span class="badge warn"><span class="dot"></span>LAN visible</span>
+      <span class="badge">Vite</span>
+      <span class="badge">npm</span>
+    </div>
+
+    <dl class="kv">
+      <dt>Port</dt><dd>:5173 (tcp, 0.0.0.0)</dd>
+      <dt>PID</dt><dd>88231</dd>
+      <dt>User</dt><dd>brad</dd>
+      <dt>Command</dt><dd class="dim">node /home/brad/Code/react-crash-2026/node_modules/.bin/vite --host</dd>
+      <dt>cwd</dt><dd>~/Code/react-crash-2026</dd>
+      <dt>Project</dt><dd>react-crash-2026 · branch main</dd>
+      <dt>Started</dt><dd>3 days ago (Jun 30, 09:12)</dd>
+      <dt>URLs</dt><dd><a href="#">http://localhost:5173</a><br><a href="#">http://192.168.1.44:5173</a> <span class="dim">(LAN)</span></dd>
+    </dl>
+
+    <div>
+      <h3>Quick actions</h3>
+      <div class="qa" style="margin-top: 8px">
+        <button class="btn"><svg class="icon"><use href="#i-open"/></svg>Open URL</button>
+        <button class="btn"><svg class="icon"><use href="#i-copy"/></svg>Copy URL</button>
+        <button class="btn"><svg class="icon"><use href="#i-folder-open"/></svg>Reveal folder</button>
+        <button class="btn"><svg class="icon"><use href="#i-terminal"/></svg>Copy kill command</button>
+        <button class="btn" style="grid-column: 1 / -1"><svg class="icon"><use href="#i-eye-off"/></svg>Ignore this service</button>
+      </div>
+    </div>
+
+    <div class="dangerzone">
+      <h3 style="color: var(--danger)">Stop service</h3>
+      <p>Tries a graceful stop (SIGTERM) first and verifies port 5173 releases. Force kill is only offered afterward, behind its own confirmation.</p>
+      <button class="btn danger block"><svg class="icon"><use href="#i-stop"/></svg>Stop vite --host…</button>
+    </div>
+  </div>
+</aside>
+
+<div class="modal-scrim">
+  <div class="modal">
+    <div class="modal-head"><svg class="icon"><use href="#i-alert"/></svg> Stop this service?</div>
+    <div class="modal-body">
+      <div class="facts">
+        <dl class="kv">
+          <dt>Process</dt><dd>vite --host</dd>
+          <dt>PID</dt><dd>88231</dd>
+          <dt>Port</dt><dd>:5173</dd>
+          <dt>cwd</dt><dd>~/Code/react-crash-2026</dd>
+          <dt>Command</dt><dd class="dim">node …/node_modules/.bin/vite --host</dd>
+        </dl>
+      </div>
+      <p class="plan"><strong>What happens:</strong> PortDoc sends SIGTERM and waits up to 5s for the process to exit and port 5173 to release. If it won't exit, you'll be offered <strong>Force kill (SIGKILL)</strong> as a separate second confirmation - nothing is force-killed now.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost">Cancel</button>
+      <button class="btn danger solid"><svg class="icon"><use href="#i-stop"/></svg>Stop gracefully</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
