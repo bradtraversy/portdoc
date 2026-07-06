@@ -75,10 +75,13 @@ async fn main() {
         eprintln!("warning: could not open browser: {err}");
     }
 
-    axum::serve(listener, app)
+    if let Err(err) = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .expect("server error");
+    {
+        eprintln!("server error: {err}");
+        std::process::exit(1);
+    }
 }
 
 /// Embedded production build of the web UI. Debug builds read `web/dist`
@@ -88,7 +91,7 @@ async fn main() {
 struct Assets;
 
 async fn static_handler(uri: Uri) -> Response {
-    if uri.path().starts_with("/api/") {
+    if uri.path() == "/api" || uri.path().starts_with("/api/") {
         return StatusCode::NOT_FOUND.into_response();
     }
 
