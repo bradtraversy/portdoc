@@ -14,7 +14,7 @@
 - [x] 5. **Linux listening-port probe** - collect listening TCP ports on Linux, join sockets to owning PIDs where possible, and attach process name, command, cwd, and user.
 - [x] 6. **Snapshot adapter** - convert real probe output into `DevSnapshot`, including unknown owners, predictable IDs, localhost URLs, and refresh-safe API responses.
 - [x] 7. **Project grouping** - detect project roots from `package.json`, `.git`, workspace files, lockfiles, and cwd, then group services by project.
-- [ ] 8. **Developer labels** - detect package manager, git branch, common frameworks, runtimes, and tools such as Next.js, Vite, React scripts, Express, Bun, Convex, Prisma Studio, Astro, Remix, and Nuxt.
+- [x] 8. **Developer labels** - detect package manager, git branch, common frameworks, runtimes, and tools such as Next.js, Vite, React scripts, Express, Bun, Convex, Prisma Studio, Astro, Remix, and Nuxt.
 - [ ] 9. **URL and exposure labels** - classify services as local, LAN visible, Docker, or unknown, and generate useful local URLs for HTTP-looking services.
 - [ ] 10. **Conflicts and stale hints** - surface port conflicts, stale dev servers, old project processes, expected-but-missing apps, and conflict-focused actions.
 - [ ] 11. **Search and filters** - add service filters for framework, runtime, API, database, Docker, unknown, LAN visible, stale, and conflict, plus quick text search.

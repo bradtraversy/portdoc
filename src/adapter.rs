@@ -7,6 +7,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::label::{ProjectLabels, detect_framework, project_labels};
 use crate::probe::{ListeningSocket, ProbeError, ProbeOutput, ProcessInfo, platform_probe};
 use crate::project::{Marker, detect_root, fs_marker};
 use crate::snapshot::{DevSnapshot, Exposure, ProjectGroup, Service};
@@ -24,7 +25,7 @@ pub fn live_snapshot() -> Result<DevSnapshot, ProbeError> {
 fn from_probe(output: ProbeOutput) -> DevSnapshot {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let mut services = services_from(output.sockets);
-    let projects = group_projects(&mut services, home.as_deref(), fs_marker);
+    let projects = group_projects(&mut services, home.as_deref(), fs_marker, project_labels);
     DevSnapshot {
         generated_at: now_ms(),
         services,
@@ -145,6 +146,7 @@ fn group_projects(
     services: &mut [Service],
     home: Option<&Path>,
     marker_at: impl Fn(&Path) -> Option<Marker>,
+    labels_at: impl Fn(&Path) -> ProjectLabels,
 ) -> Vec<ProjectGroup> {
     let mut root_by_cwd: HashMap<String, Option<PathBuf>> = HashMap::new();
     let mut members_by_root: Vec<(PathBuf, Vec<usize>)> = Vec::new();
@@ -176,12 +178,13 @@ fn group_projects(
             for &i in members {
                 services[i].project_id = Some(id.clone());
             }
+            let labels = labels_at(root);
             ProjectGroup {
                 id: id.clone(),
                 name: basename(root),
                 root: display_root(root, home),
-                package_manager: None,
-                git_branch: None,
+                package_manager: labels.package_manager,
+                git_branch: labels.git_branch,
                 service_ids: members.iter().map(|&i| services[i].id.clone()).collect(),
             }
         })
@@ -271,6 +274,10 @@ fn service_from(merged: MergedSocket, id: String) -> Service {
     let exposure = exposure(&merged.addrs);
     let url = url(&merged.addrs, merged.port);
     let process = merged.process;
+    let framework = detect_framework(
+        process.as_ref().and_then(|p| p.name.as_deref()),
+        process.as_ref().and_then(|p| p.command.as_deref()),
+    );
     Service {
         id,
         port: merged.port,
@@ -282,7 +289,7 @@ fn service_from(merged: MergedSocket, id: String) -> Service {
             .and_then(|p| p.cwd.as_ref().map(|c| c.to_string_lossy().into_owned())),
         user: process.as_ref().and_then(|p| p.user.clone()),
         project_id: None,
-        framework: None,
+        framework,
         exposure,
         url: Some(url),
         started_age: process
@@ -417,10 +424,34 @@ mod tests {
             .map(|(p, m)| (PathBuf::from(p), *m))
             .collect();
         let mut services = services_from(sockets);
-        let projects = group_projects(&mut services, Some(Path::new("/home/brad")), |dir| {
-            map.get(dir).copied()
-        });
+        let projects = group_projects(
+            &mut services,
+            Some(Path::new("/home/brad")),
+            |dir| map.get(dir).copied(),
+            |_| ProjectLabels::default(),
+        );
         (services, projects)
+    }
+
+    #[test]
+    fn project_labels_flow_onto_groups() {
+        let mut services = services_from(vec![sock(
+            "127.0.0.1",
+            3000,
+            Some(10),
+            Some(proc_at(10, "node", "/home/brad/Code/app")),
+        )]);
+        let projects = group_projects(
+            &mut services,
+            Some(Path::new("/home/brad")),
+            |dir| (dir == Path::new("/home/brad/Code/app")).then_some(Marker::Repo),
+            |_| ProjectLabels {
+                package_manager: Some("npm".into()),
+                git_branch: Some("main".into()),
+            },
+        );
+        assert_eq!(projects[0].package_manager.as_deref(), Some("npm"));
+        assert_eq!(projects[0].git_branch.as_deref(), Some("main"));
     }
 
     #[test]
@@ -546,6 +577,17 @@ mod tests {
         );
         assert_eq!(projects[0].root, "/srv/tool");
         assert_eq!(projects[0].id, "proj-tool");
+    }
+
+    #[test]
+    fn framework_flows_from_the_command_line() {
+        let vite = ProcessInfo {
+            command: Some("node /home/brad/Code/app/node_modules/.bin/vite".into()),
+            ..proc_info(10, "node")
+        };
+        let services = services_from(vec![sock("127.0.0.1", 5173, Some(10), Some(vite))]);
+        assert_eq!(services[0].framework.as_deref(), Some("Vite"));
+        assert_eq!(services[0].process_name.as_deref(), Some("node"));
     }
 
     #[test]

@@ -72,15 +72,15 @@ impl HostContext {
 fn process_info(pid: u32, host: &HostContext) -> Option<ProcessInfo> {
     let process = procfs::process::Process::new(pid as i32).ok()?;
     let stat = process.stat().ok();
+    let cmdline = process.cmdline().ok().filter(|c| !c.is_empty());
 
     Some(ProcessInfo {
         pid,
-        name: stat.as_ref().map(|s| s.comm.clone()),
-        command: process
-            .cmdline()
-            .ok()
-            .filter(|c| !c.is_empty())
-            .map(|c| c.join(" ")),
+        name: best_name(
+            stat.as_ref().map(|s| s.comm.as_str()),
+            cmdline.as_ref().and_then(|c| c.first()).map(String::as_str),
+        ),
+        command: cmdline.as_ref().map(|c| c.join(" ")),
         cwd: process.cwd().ok(),
         user: process
             .uid()
@@ -91,6 +91,42 @@ fn process_info(pid: u32, host: &HostContext) -> Option<ProcessInfo> {
             _ => None,
         },
     })
+}
+
+/// The kernel caps comm at 15 bytes and threads may rename it (node's
+/// "MainThread"); prefer the process title when it is clearly the better
+/// truth, otherwise keep comm.
+fn best_name(comm: Option<&str>, first_arg: Option<&str>) -> Option<String> {
+    let first_arg = first_arg.filter(|a| !a.trim().is_empty());
+    let Some(comm) = comm.filter(|c| !c.is_empty()) else {
+        return first_arg.map(|a| name_token(a).to_string());
+    };
+    let Some(arg) = first_arg else {
+        return Some(comm.to_string());
+    };
+    let token = name_token(arg);
+
+    const COMM_CAP: usize = 15;
+    if comm.len() == COMM_CAP {
+        // truncated comm: expand from the title or the executable basename
+        if arg.starts_with(comm) {
+            return Some(arg.to_string());
+        }
+        if token.starts_with(comm) {
+            return Some(token.to_string());
+        }
+    }
+    if !token.starts_with(comm) && !comm.starts_with(token) {
+        return Some(token.to_string());
+    }
+    Some(comm.to_string())
+}
+
+/// Path basename of the title's first whitespace token
+/// ("/usr/bin/node --flag" -> "node", "sshd: brad@pts/0" -> "sshd:").
+fn name_token(first_arg: &str) -> &str {
+    let token = first_arg.split_whitespace().next().unwrap_or(first_arg);
+    token.rsplit('/').next().unwrap_or(token)
 }
 
 fn user_for_uid(uid: u32, passwd: &str) -> Option<String> {
@@ -187,6 +223,60 @@ mod tests {
             "probe found {} listening sockets on this machine",
             output.sockets.len()
         );
+    }
+
+    #[test]
+    fn best_name_expands_truncated_comm_from_the_title() {
+        assert_eq!(
+            best_name(Some("next-server (v1"), Some("next-server (v16.2.9)")).as_deref(),
+            Some("next-server (v16.2.9)")
+        );
+        assert_eq!(
+            best_name(
+                Some("containerd-shim"),
+                Some("/usr/bin/containerd-shim-runc-v2")
+            )
+            .as_deref(),
+            Some("containerd-shim-runc-v2")
+        );
+    }
+
+    #[test]
+    fn best_name_replaces_renamed_thread_labels_with_the_executable() {
+        assert_eq!(
+            best_name(Some("MainThread"), Some("/usr/bin/node")).as_deref(),
+            Some("node")
+        );
+    }
+
+    #[test]
+    fn best_name_keeps_comm_when_it_matches_the_title() {
+        assert_eq!(
+            best_name(Some("node"), Some("node")).as_deref(),
+            Some("node")
+        );
+        assert_eq!(
+            best_name(Some("sshd"), Some("sshd: brad@pts/0")).as_deref(),
+            Some("sshd"),
+            "rewritten daemon titles keep the comm"
+        );
+        assert_eq!(
+            best_name(Some("python3"), Some("/usr/bin/python3.12")).as_deref(),
+            Some("python3")
+        );
+    }
+
+    #[test]
+    fn best_name_handles_missing_sides() {
+        assert_eq!(
+            best_name(Some("kworker/0:1"), None).as_deref(),
+            Some("kworker/0:1")
+        );
+        assert_eq!(
+            best_name(None, Some("/bin/thing --flag")).as_deref(),
+            Some("thing")
+        );
+        assert_eq!(best_name(None, None), None);
     }
 
     #[test]

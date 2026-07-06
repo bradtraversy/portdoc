@@ -1,0 +1,255 @@
+//! Developer-facing labels (feature 8): framework detection from command
+//! lines, plus package manager and git branch detection at project roots.
+
+use std::path::Path;
+
+/// Ordered by specificity: tools before runtimes, so "bunx vite" labels as
+/// Vite. Identifiers match command-token basenames with js extensions
+/// stripped, never raw substrings.
+const FRAMEWORKS: [(&str, &[&str]); 11] = [
+    ("Next.js", &["next", "next-server"]),
+    ("Vite", &["vite"]),
+    ("Astro", &["astro"]),
+    ("Remix", &["remix"]),
+    ("Nuxt", &["nuxt", "nuxi"]),
+    ("React scripts", &["react-scripts"]),
+    ("Convex", &["convex", "convex-local-backend"]),
+    ("Express", &["express"]),
+    ("Bun", &["bun", "bunx"]),
+    ("Postgres", &["postgres", "postmaster"]),
+    ("Redis", &["redis-server"]),
+];
+
+pub fn detect_framework(name: Option<&str>, command: Option<&str>) -> Option<String> {
+    let tokens: Vec<String> = name
+        .into_iter()
+        .chain(command)
+        .flat_map(str::split_whitespace)
+        .map(clean_token)
+        .collect();
+
+    // the one two-word tool; both tokens must appear
+    if tokens.iter().any(|t| t == "prisma") && tokens.iter().any(|t| t == "studio") {
+        return Some("Prisma Studio".into());
+    }
+
+    FRAMEWORKS
+        .iter()
+        .find(|(_, ids)| ids.iter().any(|id| tokens.iter().any(|t| t == id)))
+        .map(|(label, _)| (*label).into())
+}
+
+/// Path basename, lowercased, with node-ish extensions stripped
+/// (".../astro/bin/astro.mjs" -> "astro").
+fn clean_token(token: &str) -> String {
+    let base = token.rsplit('/').next().unwrap_or(token).to_lowercase();
+    for ext in [".mjs", ".cjs", ".js"] {
+        if let Some(stripped) = base.strip_suffix(ext) {
+            return stripped.to_string();
+        }
+    }
+    base
+}
+
+#[derive(Default)]
+pub struct ProjectLabels {
+    pub package_manager: Option<String>,
+    pub git_branch: Option<String>,
+}
+
+pub fn project_labels(root: &Path) -> ProjectLabels {
+    ProjectLabels {
+        package_manager: package_manager(root),
+        git_branch: git_branch(root),
+    }
+}
+
+/// Lockfile/manifest -> package manager, most specific first (a root with
+/// both bun.lock and package.json is a bun project).
+const PACKAGE_MANAGERS: [(&str, &str); 9] = [
+    ("bun.lockb", "bun"),
+    ("bun.lock", "bun"),
+    ("pnpm-lock.yaml", "pnpm"),
+    ("pnpm-workspace.yaml", "pnpm"),
+    ("yarn.lock", "yarn"),
+    ("package-lock.json", "npm"),
+    ("package.json", "npm"),
+    ("Cargo.toml", "cargo"),
+    ("Cargo.lock", "cargo"),
+];
+
+fn package_manager(root: &Path) -> Option<String> {
+    PACKAGE_MANAGERS
+        .iter()
+        .find(|(file, _)| root.join(file).exists())
+        .map(|(_, pm)| (*pm).into())
+}
+
+/// Read the branch from `.git/HEAD` without shelling out. A `.git` file
+/// (worktree) is followed one level via its `gitdir:` pointer.
+fn git_branch(root: &Path) -> Option<String> {
+    let git = root.join(".git");
+    let head_path = if git.is_file() {
+        let pointer = std::fs::read_to_string(&git).ok()?;
+        let dir = Path::new(pointer.strip_prefix("gitdir:")?.trim());
+        let dir = if dir.is_absolute() {
+            dir.to_path_buf()
+        } else {
+            root.join(dir)
+        };
+        dir.join("HEAD")
+    } else {
+        git.join("HEAD")
+    };
+    parse_head(&std::fs::read_to_string(head_path).ok()?)
+}
+
+/// "ref: refs/heads/main" -> "main"; detached HEAD -> short hash.
+fn parse_head(content: &str) -> Option<String> {
+    let line = content.lines().next()?.trim();
+    if let Some(reference) = line.strip_prefix("ref:") {
+        let reference = reference.trim();
+        return reference
+            .strip_prefix("refs/heads/")
+            .map(str::to_string)
+            .or_else(|| reference.rsplit('/').next().map(str::to_string));
+    }
+    (line.len() >= 7 && line.chars().all(|c| c.is_ascii_hexdigit())).then(|| line[..7].to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn detect(command: &str) -> Option<String> {
+        detect_framework(None, Some(command))
+    }
+
+    #[test]
+    fn detects_the_named_tools_from_real_command_shapes() {
+        let cases = [
+            ("node /repo/node_modules/.bin/next dev", "Next.js"),
+            ("next-server (v16.2.9)", "Next.js"),
+            ("node /repo/node_modules/.bin/vite", "Vite"),
+            (
+                "node /repo/node_modules/astro/bin/astro.mjs preview",
+                "Astro",
+            ),
+            ("node /repo/node_modules/.bin/remix dev", "Remix"),
+            ("node /repo/node_modules/.bin/nuxt dev", "Nuxt"),
+            ("node /repo/node_modules/.bin/nuxi dev", "Nuxt"),
+            (
+                "node /repo/node_modules/.bin/react-scripts start",
+                "React scripts",
+            ),
+            ("node /repo/node_modules/.bin/convex dev", "Convex"),
+            (
+                "/home/x/.cache/convex/binaries/p-1/convex-local-backend --port 3210",
+                "Convex",
+            ),
+            (
+                "node /repo/node_modules/.bin/prisma studio",
+                "Prisma Studio",
+            ),
+            ("node /repo/node_modules/.bin/express", "Express"),
+            ("bun run dev", "Bun"),
+            ("bunx serve", "Bun"),
+            ("/usr/lib/postgresql/16/bin/postgres -D /data", "Postgres"),
+            ("redis-server *:6379", "Redis"),
+        ];
+        for (command, expected) in cases {
+            assert_eq!(detect(command).as_deref(), Some(expected), "for: {command}");
+        }
+    }
+
+    #[test]
+    fn specific_tools_beat_runtimes() {
+        assert_eq!(detect("bunx vite dev").as_deref(), Some("Vite"));
+    }
+
+    #[test]
+    fn prisma_without_studio_is_not_labeled() {
+        assert_eq!(
+            detect("node /repo/node_modules/.bin/prisma migrate dev"),
+            None
+        );
+    }
+
+    #[test]
+    fn tokens_match_basenames_not_substrings() {
+        assert_eq!(detect("/opt/nextcloud/server --port 8080"), None);
+        assert_eq!(detect("node /home/brad/next-project/server.js"), None);
+        assert_eq!(detect("python3 -m http.server 8123"), None);
+        assert_eq!(
+            detect("node express-server.js"),
+            None,
+            "an express app script is not the express token"
+        );
+    }
+
+    #[test]
+    fn name_alone_can_carry_the_signal() {
+        assert_eq!(
+            detect_framework(Some("next-server (v16.2.9)"), None).as_deref(),
+            Some("Next.js")
+        );
+        assert_eq!(detect_framework(Some("node"), None), None);
+        assert_eq!(detect_framework(None, None), None);
+    }
+
+    #[test]
+    fn parse_head_reads_branches_and_detached_shas() {
+        assert_eq!(
+            parse_head("ref: refs/heads/main\n").as_deref(),
+            Some("main")
+        );
+        assert_eq!(
+            parse_head("ref: refs/heads/feature/developer-labels\n").as_deref(),
+            Some("feature/developer-labels"),
+            "slashed branch names survive"
+        );
+        assert_eq!(
+            parse_head("3f2a9c1d8e7b6a5f4d3c2b1a0e9f8d7c6b5a4e3d\n").as_deref(),
+            Some("3f2a9c1")
+        );
+        assert_eq!(parse_head("not a head file"), None);
+        assert_eq!(parse_head(""), None);
+    }
+
+    #[test]
+    fn real_fs_labels_this_repo() {
+        let repo = std::env::current_dir().expect("test cwd");
+        assert_eq!(package_manager(&repo).as_deref(), Some("cargo"));
+        assert_eq!(package_manager(&repo.join("web")).as_deref(), Some("npm"));
+        assert_eq!(package_manager(&repo.join("src")), None);
+        let branch = git_branch(&repo).expect("repo should have a branch");
+        assert!(!branch.is_empty());
+    }
+
+    #[test]
+    fn package_manager_precedence_and_worktree_git_file() {
+        let base = std::env::temp_dir().join(format!("portdoc-label-test-{}", std::process::id()));
+        let project = base.join("project");
+        let gitdir = base.join("gitdir");
+        std::fs::create_dir_all(&project).expect("mkdir project");
+        std::fs::create_dir_all(&gitdir).expect("mkdir gitdir");
+
+        std::fs::write(project.join("package.json"), "{}").expect("write");
+        std::fs::write(project.join("bun.lock"), "").expect("write");
+        assert_eq!(
+            package_manager(&project).as_deref(),
+            Some("bun"),
+            "bun lockfile beats package.json"
+        );
+
+        std::fs::write(
+            project.join(".git"),
+            format!("gitdir: {}\n", gitdir.display()),
+        )
+        .expect("write .git file");
+        std::fs::write(gitdir.join("HEAD"), "ref: refs/heads/wt-branch\n").expect("write HEAD");
+        assert_eq!(git_branch(&project).as_deref(), Some("wt-branch"));
+
+        std::fs::remove_dir_all(&base).expect("cleanup");
+    }
+}

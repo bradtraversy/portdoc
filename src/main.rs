@@ -1,4 +1,5 @@
 mod adapter;
+mod label;
 mod probe;
 mod project;
 mod snapshot;
