@@ -1,7 +1,12 @@
-use super::{Probe, ProbeError, ProbeOutput};
+use std::collections::HashMap;
 
-/// Linux probe backed by /proc. Feature 5 implements the real socket and
-/// process reading; until then it reports an empty, valid probe result.
+use procfs::Current;
+use procfs::net::TcpState;
+use procfs::process::FDTarget;
+
+use super::{ListeningSocket, Probe, ProbeError, ProbeOutput, ProcessInfo, Protocol};
+
+/// Linux probe backed by /proc: listening TCP sockets from /proc/net/tcp{,6}.
 pub struct LinuxProbe;
 
 impl Probe for LinuxProbe {
@@ -10,6 +15,201 @@ impl Probe for LinuxProbe {
     }
 
     fn probe(&self) -> Result<ProbeOutput, ProbeError> {
-        Ok(ProbeOutput::default())
+        let mut sockets = listening_sockets()?;
+        sockets.sort_by_key(|s| s.port);
+        Ok(ProbeOutput { sockets })
+    }
+}
+
+fn listening_sockets() -> Result<Vec<ListeningSocket>, ProbeError> {
+    let v4 = procfs::net::tcp().map_err(|e| proc_err("/proc/net/tcp", e))?;
+    let v6 = procfs::net::tcp6().map_err(|e| proc_err("/proc/net/tcp6", e))?;
+    let owners = socket_owners();
+    let host = HostContext::read();
+    let mut info_cache: HashMap<u32, Option<ProcessInfo>> = HashMap::new();
+
+    Ok(v4
+        .into_iter()
+        .chain(v6)
+        .filter(|entry| entry.state == TcpState::Listen)
+        .map(|entry| {
+            let pid = owners.get(&entry.inode).copied();
+            let process = pid.and_then(|p| {
+                info_cache
+                    .entry(p)
+                    .or_insert_with(|| process_info(p, &host))
+                    .clone()
+            });
+            ListeningSocket {
+                protocol: Protocol::Tcp,
+                local_addr: entry.local_address.ip(),
+                port: entry.local_address.port(),
+                pid,
+                process,
+            }
+        })
+        .collect())
+}
+
+/// Host facts read once per probe instead of once per process.
+struct HostContext {
+    passwd: String,
+    uptime_secs: Option<f64>,
+    ticks_per_second: u64,
+}
+
+impl HostContext {
+    fn read() -> Self {
+        Self {
+            passwd: std::fs::read_to_string("/etc/passwd").unwrap_or_default(),
+            uptime_secs: procfs::Uptime::current().ok().map(|u| u.uptime),
+            ticks_per_second: procfs::ticks_per_second(),
+        }
+    }
+}
+
+/// Best-effort process metadata; any unreadable piece degrades to None.
+fn process_info(pid: u32, host: &HostContext) -> Option<ProcessInfo> {
+    let process = procfs::process::Process::new(pid as i32).ok()?;
+    let stat = process.stat().ok();
+
+    Some(ProcessInfo {
+        pid,
+        name: stat.as_ref().map(|s| s.comm.clone()),
+        command: process
+            .cmdline()
+            .ok()
+            .filter(|c| !c.is_empty())
+            .map(|c| c.join(" ")),
+        cwd: process.cwd().ok(),
+        user: process
+            .uid()
+            .ok()
+            .and_then(|uid| user_for_uid(uid, &host.passwd)),
+        started_secs_ago: match (&stat, host.uptime_secs) {
+            (Some(s), Some(uptime)) => Some(secs_ago(uptime, s.starttime, host.ticks_per_second)),
+            _ => None,
+        },
+    })
+}
+
+fn user_for_uid(uid: u32, passwd: &str) -> Option<String> {
+    passwd.lines().find_map(|line| {
+        let mut fields = line.split(':');
+        let name = fields.next()?;
+        let _password = fields.next()?;
+        let line_uid: u32 = fields.next()?.parse().ok()?;
+        (line_uid == uid).then(|| name.to_string())
+    })
+}
+
+fn secs_ago(uptime_secs: f64, starttime_ticks: u64, ticks_per_second: u64) -> u64 {
+    if ticks_per_second == 0 {
+        return 0;
+    }
+    let started = starttime_ticks as f64 / ticks_per_second as f64;
+    (uptime_secs - started).max(0.0) as u64
+}
+
+/// Map socket inodes to owning PIDs by scanning readable fd tables.
+/// Processes we can't read (other users, exited mid-scan) are skipped;
+/// their sockets simply stay unowned.
+fn socket_owners() -> HashMap<u64, u32> {
+    let mut owners = HashMap::new();
+    let Ok(processes) = procfs::process::all_processes() else {
+        return owners;
+    };
+    for process in processes.flatten() {
+        let Ok(fds) = process.fd() else { continue };
+        for fd in fds.flatten() {
+            if let FDTarget::Socket(inode) = fd.target {
+                owners.insert(inode, process.pid as u32);
+            }
+        }
+    }
+    owners
+}
+
+fn proc_err(path: &str, err: procfs::ProcError) -> ProbeError {
+    let source = match err {
+        procfs::ProcError::Io(io, _) => io,
+        other => std::io::Error::other(other.to_string()),
+    };
+    ProbeError::Io {
+        path: path.to_string(),
+        source,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn probe_sees_own_listener() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind test listener");
+        let port = listener.local_addr().expect("local addr").port();
+
+        let output = LinuxProbe.probe().expect("probe should succeed");
+
+        let own = output
+            .sockets
+            .iter()
+            .find(|s| s.port == port)
+            .unwrap_or_else(|| panic!("probe should see the test listener on port {port}"));
+        assert_eq!(
+            own.pid,
+            Some(std::process::id()),
+            "own listener should be joined to our pid"
+        );
+
+        let info = own
+            .process
+            .as_ref()
+            .expect("own process should have metadata");
+        assert!(info.name.is_some(), "own process should have a name");
+        let command = info
+            .command
+            .as_deref()
+            .expect("own process should have a command");
+        assert!(
+            command.contains("portdoc"),
+            "test binary command should mention portdoc, got: {command}"
+        );
+        assert!(info.cwd.is_some(), "own process cwd should be readable");
+        assert!(info.user.is_some(), "own process user should resolve");
+        assert!(
+            info.started_secs_ago.is_some(),
+            "own process age should compute"
+        );
+
+        eprintln!(
+            "probe found {} listening sockets on this machine",
+            output.sockets.len()
+        );
+    }
+
+    #[test]
+    fn user_for_uid_resolves_and_skips_malformed() {
+        let passwd = "root:x:0:0:root:/root:/bin/bash\nbroken-line-no-fields\nbrad:x:1000:1000:Brad:/home/brad:/bin/bash\n";
+        assert_eq!(user_for_uid(0, passwd).as_deref(), Some("root"));
+        assert_eq!(user_for_uid(1000, passwd).as_deref(), Some("brad"));
+        assert_eq!(user_for_uid(4242, passwd), None);
+        assert_eq!(user_for_uid(0, ""), None);
+    }
+
+    #[test]
+    fn secs_ago_handles_edges() {
+        assert_eq!(secs_ago(1000.0, 50_000, 100), 500);
+        assert_eq!(
+            secs_ago(1000.0, 0, 0),
+            0,
+            "zero ticks per second must not divide"
+        );
+        assert_eq!(
+            secs_ago(10.0, 5_000, 100),
+            0,
+            "future starttime clamps to zero"
+        );
     }
 }

@@ -85,10 +85,11 @@ mod tests {
 
     #[test]
     #[cfg(target_os = "linux")]
-    fn skeleton_probe_returns_empty_output() {
+    fn linux_probe_runs() {
         let probe = platform_probe().expect("linux should have a probe");
-        let output = probe.probe().expect("skeleton probe should not fail");
-        assert!(output.sockets.is_empty());
+        let output = probe.probe().expect("probe should succeed on linux");
+        // sorted by port, per the probe's stability guarantee
+        assert!(output.sockets.is_sorted_by_key(|s| s.port));
     }
 
     #[test]
