@@ -1,4 +1,4 @@
-mod mock;
+mod adapter;
 mod probe;
 mod snapshot;
 
@@ -42,7 +42,11 @@ async fn main() {
     let cli = Cli::parse();
 
     if cli.json {
-        match serde_json::to_string_pretty(&mock::snapshot()) {
+        let snapshot = adapter::live_snapshot().unwrap_or_else(|err| {
+            eprintln!("probe failed: {err}");
+            std::process::exit(1);
+        });
+        match serde_json::to_string_pretty(&snapshot) {
             Ok(out) => println!("{out}"),
             Err(err) => {
                 eprintln!("failed to serialize snapshot: {err}");
@@ -137,8 +141,22 @@ async fn health() -> Json<Value> {
     Json(json!({ "status": "ok", "version": env!("CARGO_PKG_VERSION") }))
 }
 
-async fn api_snapshot() -> Json<snapshot::DevSnapshot> {
-    Json(mock::snapshot())
+/// Every request re-probes; the blocking /proc walk stays off the async
+/// runtime so concurrent refreshes don't stall other requests.
+async fn api_snapshot() -> Response {
+    match tokio::task::spawn_blocking(adapter::live_snapshot).await {
+        Ok(Ok(snapshot)) => Json(snapshot).into_response(),
+        Ok(Err(err)) => snapshot_error(format!("probe failed: {err}")),
+        Err(err) => snapshot_error(format!("probe task failed: {err}")),
+    }
+}
+
+fn snapshot_error(message: String) -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(json!({ "error": message })),
+    )
+        .into_response()
 }
 
 async fn shutdown_signal() {

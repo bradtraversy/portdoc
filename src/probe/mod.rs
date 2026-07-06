@@ -4,10 +4,6 @@
 //! an implementation return `None` from `platform_probe()` so the binary
 //! still builds and runs everywhere.
 
-// Consumed by features 5-6; the boundary lands one feature ahead of its
-// consumers, so only the tests use it for now.
-#![allow(dead_code)]
-
 #[cfg(target_os = "linux")]
 mod linux;
 
@@ -21,6 +17,8 @@ pub enum Protocol {
 
 #[derive(Debug, Clone)]
 pub struct ListeningSocket {
+    // Raw socket detail; unread until the Advanced tab (feature 14).
+    #[allow(dead_code)]
     pub protocol: Protocol,
     pub local_addr: IpAddr,
     pub port: u16,
@@ -31,6 +29,8 @@ pub struct ListeningSocket {
 /// Everything but `pid` is optional: unknown owners are a first-class case.
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
+    // Duplicates ListeningSocket.pid, which consumers read instead.
+    #[allow(dead_code)]
     pub pid: u32,
     pub name: Option<String>,
     pub command: Option<String>,
@@ -52,12 +52,16 @@ pub enum ProbeError {
         #[source]
         source: std::io::Error,
     },
+    // Never constructed today: platform_probe() returns None instead.
+    #[allow(dead_code)]
     #[error("probing is not supported on this platform")]
     Unsupported,
 }
 
 pub trait Probe {
-    /// Short backend name for diagnostics ("linux-proc").
+    /// Short backend name for diagnostics ("linux-proc"); surfaced by the
+    /// Advanced tab (feature 14).
+    #[allow(dead_code)]
     fn name(&self) -> &'static str;
     fn probe(&self) -> Result<ProbeOutput, ProbeError>;
 }

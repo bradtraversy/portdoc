@@ -45,7 +45,10 @@ pub struct Service {
 #[serde(rename_all = "lowercase")]
 pub enum Exposure {
     Local,
+    // Locked contract values; construction starts at features 9 and 14.
+    #[allow(dead_code)]
     Lan,
+    #[allow(dead_code)]
     Docker,
     Unknown,
 }
