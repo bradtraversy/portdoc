@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DevSnapshot } from './types'
+
+const POLL_MS = 5000
 
 interface SnapshotState {
   snapshot: DevSnapshot | null
@@ -15,9 +17,14 @@ export function useSnapshot() {
     loading: true,
     fetchedAt: null,
   })
+  const inFlight = useRef(false)
 
-  const refresh = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true }))
+  // Background polls stay silent (no loading state) so the Refresh button
+  // doesn't flicker disabled on every tick.
+  const load = useCallback(async (background: boolean) => {
+    if (inFlight.current) return
+    inFlight.current = true
+    if (!background) setState((s) => ({ ...s, loading: true }))
     try {
       const res = await fetch('/api/snapshot')
       if (!res.ok) throw new Error(`API returned ${res.status}`)
@@ -29,12 +36,27 @@ export function useSnapshot() {
         loading: false,
         error: err instanceof Error ? err.message : String(err),
       }))
+    } finally {
+      inFlight.current = false
     }
   }, [])
 
+  const refresh = useCallback(() => load(false), [load])
+
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void load(false)
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') void load(true)
+    }, POLL_MS)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void load(true)
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [load])
 
   return { ...state, refresh }
 }
