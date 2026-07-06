@@ -13,11 +13,11 @@
 - Async runtime is tokio; the server is axum with routes built on `Router`
 - CLI flags go through the clap `Cli` derive struct in `main.rs`
 
-> TODO: error-handling crates (anyhow/thiserror) not chosen yet; decide when the
-> first fallible module lands.
-
-> TODO: module layout beyond `main.rs` not established; split into modules when
-> the first real feature needs one, don't pre-build a src tree.
+- Errors: `thiserror` for typed error enums (decided at the probe boundary,
+  feature 4); fallible paths return these, `anyhow` stays out of the codebase
+- Module layout: flat modules off `main.rs` (`snapshot`, `mock`); platform
+  code splits per OS inside a module folder (`probe/mod.rs` boundary +
+  `probe/linux.rs`); split further only when a feature needs it
 
 ## TypeScript (frontend)
 

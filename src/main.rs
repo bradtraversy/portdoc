@@ -1,4 +1,5 @@
 mod mock;
+mod probe;
 mod snapshot;
 
 use std::net::SocketAddr;
