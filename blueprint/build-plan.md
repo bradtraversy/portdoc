@@ -8,7 +8,7 @@
 > progress tracker.
 
 - [x] 1. **Mock snapshot contract** - define the shared `DevSnapshot` shape, add `/api/health`, add `/api/snapshot` with mocked services, and make `portdoc --json` print the same snapshot.
-- [ ] 2. **Embedded web shell** - build the Vite app for production, serve it from the Rust binary, keep the local server on `127.0.0.1:7788`, and open the browser by default.
+- [x] 2. **Embedded web shell** - build the Vite app for production, serve it from the Rust binary, keep the local server on `127.0.0.1:7788`, and open the browser by default.
 - [ ] 3. **Mock dashboard UI** - replace the Vite starter screen with dashboard summary cards, project groups, and a services table driven by mocked snapshot data.
 - [ ] 4. **Platform probe boundary** - create the platform probing abstraction and a Linux-first implementation path without committing to macOS or Windows internals yet.
 - [ ] 5. **Linux listening-port probe** - collect listening TCP ports on Linux, join sockets to owning PIDs where possible, and attach process name, command, cwd, and user.

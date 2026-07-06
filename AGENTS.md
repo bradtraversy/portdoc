@@ -77,8 +77,9 @@ or destructive actions.
 Backend (repo root):
 
 - Typecheck: `cargo check`
-- Run server: `cargo run` (http://127.0.0.1:7788, `--port` to override)
+- Run server: `cargo run` (http://127.0.0.1:7788, `--port` to override, `--no-open` to skip the browser)
 - Build: `cargo build` (release: `cargo build --release`)
+- The server embeds `web/dist`, so run `npm run build` in `web/` first when the served UI matters
 - Lint: `cargo clippy`
 - Format: `cargo fmt`
 
