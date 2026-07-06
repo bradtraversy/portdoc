@@ -52,15 +52,14 @@
 
 ## Styling
 
-- Planned UI stack (per the project plan): Tailwind CSS, shadcn/ui-style
-  components, TanStack Table for the services table, Lucide icons
-- None of it is installed yet; adopt it with the first real UI feature (build
-  plan item 3), not as a silent mid-step install
-- Until then the scaffold uses the Vite template's plain CSS
+- UI stack (installed at build item 3): Tailwind CSS v4 via `@tailwindcss/vite`,
+  hand-built shadcn/ui-style components in `web/src/components/ui/`, TanStack
+  Table for the services table, Lucide icons (`lucide-react`)
+- Theme tokens live in the `@theme` block of `web/src/index.css` (ported from
+  the prototypes): graphite surfaces, amber accent for interaction only, status
+  colors always paired with a dot or text label, sans UI type + mono for data
+  (ports, PIDs, commands, paths)
 - No inline styles
-
-> TODO: theme/look not locked yet; consider `/prototype` before the first UI
-> feature.
 
 ## API Boundary
 

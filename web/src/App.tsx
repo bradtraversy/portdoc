@@ -1,122 +1,49 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { TriangleAlert } from 'lucide-react'
+import { useSnapshot } from './lib/useSnapshot'
+import { TopBar } from './components/TopBar'
+import { TabBar, type TabId } from './components/TabBar'
+import { Placeholder } from './components/Placeholder'
+import { DashboardView } from './components/DashboardView'
+import { ServicesTable } from './components/ServicesTable'
+import { Button } from './components/ui/button'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+const placeholders: Record<Exclude<TabId, 'dashboard' | 'services'>, { title: string; note: string }> = {
+  projects: { title: 'Projects', note: 'Project-grouped view lands with real project detection (feature 7).' },
+  conflicts: { title: 'Conflicts', note: 'Conflict details and actions land with feature 10.' },
+  docker: { title: 'Docker', note: 'Container and Compose view lands with feature 14.' },
+  advanced: { title: 'Advanced', note: 'Raw sockets, JSON export, and diagnostics land with feature 14.' },
 }
 
-export default App
+export default function App() {
+  const [tab, setTab] = useState<TabId>('dashboard')
+  const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
+
+  return (
+    <div className="min-h-screen">
+      <TopBar fetchedAt={fetchedAt} refreshing={loading} onRefresh={() => void refresh()} />
+      <TabBar active={tab} onSelect={setTab} snapshot={snapshot} />
+      <main className="mx-auto grid max-w-[1180px] content-start gap-4 p-5 pb-12">
+        {error && (
+          <div className="flex items-center gap-3 rounded-lg border border-danger/30 bg-danger/10 px-3.5 py-2.5 text-sm">
+            <TriangleAlert className="size-3.5 flex-none text-danger" />
+            <span>
+              <strong className="font-semibold">Snapshot failed:</strong> {error}
+            </span>
+            <Button size="sm" className="ml-auto" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {!snapshot && !error && <p className="text-sm text-faint">Loading snapshot</p>}
+        {snapshot && tab === 'dashboard' && (
+          <DashboardView snapshot={snapshot} onNavigate={setTab} />
+        )}
+        {snapshot && tab === 'services' && <ServicesTable snapshot={snapshot} />}
+        {snapshot && tab !== 'dashboard' && tab !== 'services' && (
+          <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
+        )}
+      </main>
+    </div>
+  )
+}
