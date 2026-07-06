@@ -7,7 +7,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::label::{ProjectLabels, detect_framework, project_labels};
+use crate::label::{ProjectLabels, detect_framework, http_looking, project_labels};
 use crate::probe::{ListeningSocket, ProbeError, ProbeOutput, ProcessInfo, platform_probe};
 use crate::project::{Marker, detect_root, fs_marker};
 use crate::snapshot::{DevSnapshot, Exposure, ProjectGroup, Service};
@@ -132,11 +132,19 @@ fn slug(name: Option<&str>) -> String {
     }
 }
 
-fn exposure(addrs: &[IpAddr]) -> Exposure {
+/// Bind addresses answer reachability regardless of owner; docker-proxy
+/// ownership is the one provable Docker signal without root.
+fn exposure(addrs: &[IpAddr], process_name: Option<&str>) -> Exposure {
+    if process_name == Some("docker-proxy") {
+        return Exposure::Docker;
+    }
+    if addrs.is_empty() {
+        return Exposure::Unknown;
+    }
     if addrs.iter().all(|a| a.to_canonical().is_loopback()) {
         Exposure::Local
     } else {
-        Exposure::Unknown
+        Exposure::Lan
     }
 }
 
@@ -271,13 +279,12 @@ fn url(addrs: &[IpAddr], port: u16) -> String {
 }
 
 fn service_from(merged: MergedSocket, id: String) -> Service {
-    let exposure = exposure(&merged.addrs);
-    let url = url(&merged.addrs, merged.port);
     let process = merged.process;
-    let framework = detect_framework(
-        process.as_ref().and_then(|p| p.name.as_deref()),
-        process.as_ref().and_then(|p| p.command.as_deref()),
-    );
+    let name = process.as_ref().and_then(|p| p.name.as_deref());
+    let exposure = exposure(&merged.addrs, name);
+    let framework = detect_framework(name, process.as_ref().and_then(|p| p.command.as_deref()));
+    let url = http_looking(merged.port, name, framework.as_deref())
+        .then(|| url(&merged.addrs, merged.port));
     Service {
         id,
         port: merged.port,
@@ -291,7 +298,7 @@ fn service_from(merged: MergedSocket, id: String) -> Service {
         project_id: None,
         framework,
         exposure,
-        url: Some(url),
+        url,
         started_age: process
             .as_ref()
             .and_then(|p| p.started_secs_ago)
@@ -343,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_owners_on_one_port_merge_and_stay_unknown() {
+    fn unknown_owner_wildcard_binds_merge_and_read_as_lan() {
         let services = services_from(vec![
             sock("0.0.0.0", 8080, None, None),
             sock("::", 8080, None, None),
@@ -351,7 +358,10 @@ mod tests {
         assert_eq!(services.len(), 1);
         assert_eq!(services[0].id, "svc-8080-unknown");
         assert!(services[0].pid.is_none());
-        assert!(matches!(services[0].exposure, Exposure::Unknown));
+        assert!(
+            matches!(services[0].exposure, Exposure::Lan),
+            "the bind address answers reachability even without an owner"
+        );
     }
 
     #[test]
@@ -384,13 +394,35 @@ mod tests {
     }
 
     #[test]
-    fn mixed_loopback_and_lan_binds_are_not_local() {
+    fn mixed_loopback_and_lan_binds_classify_lan() {
         let services = services_from(vec![
             sock("127.0.0.1", 5173, Some(10), Some(proc_info(10, "node"))),
             sock("192.168.1.5", 5173, Some(10), None),
         ]);
         assert_eq!(services.len(), 1);
-        assert!(matches!(services[0].exposure, Exposure::Unknown));
+        assert!(matches!(services[0].exposure, Exposure::Lan));
+    }
+
+    #[test]
+    fn specific_lan_address_classifies_lan() {
+        let services = services_from(vec![sock(
+            "192.168.1.5",
+            5173,
+            Some(10),
+            Some(proc_info(10, "node")),
+        )]);
+        assert!(matches!(services[0].exposure, Exposure::Lan));
+    }
+
+    #[test]
+    fn docker_proxy_owner_classifies_docker_even_on_wildcard() {
+        let services = services_from(vec![sock(
+            "0.0.0.0",
+            5432,
+            Some(77),
+            Some(proc_info(77, "docker-proxy")),
+        )]);
+        assert!(matches!(services[0].exposure, Exposure::Docker));
     }
 
     #[test]
@@ -619,6 +651,34 @@ mod tests {
         assert_eq!(url(&lan_v4, 5173), "http://192.168.1.5:5173");
         let lan_v6 = ["fe80::1".parse().expect("addr")];
         assert_eq!(url(&lan_v6, 5173), "http://[fe80::1]:5173");
+    }
+
+    #[test]
+    fn non_http_services_get_no_url_but_still_classify() {
+        let services = services_from(vec![
+            sock("0.0.0.0", 22, None, None),
+            sock(
+                "127.0.0.1",
+                54329,
+                Some(42),
+                Some(proc_info(42, "postgres")),
+            ),
+            sock("127.0.0.1", 3000, Some(10), Some(proc_info(10, "node"))),
+        ]);
+        let by_port: HashMap<u16, &Service> = services.iter().map(|s| (s.port, s)).collect();
+
+        assert!(by_port[&22].url.is_none(), "ssh gets no link");
+        assert!(matches!(by_port[&22].exposure, Exposure::Lan));
+        assert!(
+            by_port[&54329].url.is_none(),
+            "postgres framework kills the url on an odd port"
+        );
+        assert_eq!(by_port[&54329].framework.as_deref(), Some("Postgres"));
+        assert_eq!(
+            by_port[&3000].url.as_deref(),
+            Some("http://localhost:3000"),
+            "dev servers keep their urls"
+        );
     }
 
     #[test]

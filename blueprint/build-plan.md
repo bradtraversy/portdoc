@@ -15,7 +15,7 @@
 - [x] 6. **Snapshot adapter** - convert real probe output into `DevSnapshot`, including unknown owners, predictable IDs, localhost URLs, and refresh-safe API responses.
 - [x] 7. **Project grouping** - detect project roots from `package.json`, `.git`, workspace files, lockfiles, and cwd, then group services by project.
 - [x] 8. **Developer labels** - detect package manager, git branch, common frameworks, runtimes, and tools such as Next.js, Vite, React scripts, Express, Bun, Convex, Prisma Studio, Astro, Remix, and Nuxt.
-- [ ] 9. **URL and exposure labels** - classify services as local, LAN visible, Docker, or unknown, and generate useful local URLs for HTTP-looking services.
+- [x] 9. **URL and exposure labels** - classify services as local, LAN visible, Docker, or unknown, and generate useful local URLs for HTTP-looking services.
 - [ ] 10. **Conflicts and stale hints** - surface port conflicts, stale dev servers, old project processes, expected-but-missing apps, and conflict-focused actions.
 - [ ] 11. **Search and filters** - add service filters for framework, runtime, API, database, Docker, unknown, LAN visible, stale, and conflict, plus quick text search.
 - [ ] 12. **Safe stop action** - stop one service or port with confirmation, show exact PID/command/cwd before stopping, try graceful termination first, verify the port releases, and keep force kill behind a second explicit confirmation.

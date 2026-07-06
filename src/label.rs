@@ -51,6 +51,29 @@ fn clean_token(token: &str) -> String {
     base
 }
 
+/// Non-HTTP signals that should kill URL generation. Anything not caught
+/// here is treated as HTTP-looking - an unknown :8080 is more likely a dev
+/// server than not. 631 (CUPS) is deliberately absent: it serves a web UI.
+const NON_HTTP_PORTS: [u16; 18] = [
+    22, 25, 53, 110, 143, 465, 587, 993, 995, 1433, 2049, 3306, 5432, 5672, 6379, 9092, 11211,
+    27017,
+];
+const NON_HTTP_FRAMEWORKS: [&str; 2] = ["Postgres", "Redis"];
+const NON_HTTP_PROCESSES: [&str; 3] = ["sshd", "dnsmasq", "systemd-resolved"];
+
+pub fn http_looking(port: u16, process_name: Option<&str>, framework: Option<&str>) -> bool {
+    if NON_HTTP_PORTS.contains(&port) {
+        return false;
+    }
+    if framework.is_some_and(|f| NON_HTTP_FRAMEWORKS.contains(&f)) {
+        return false;
+    }
+    if process_name.is_some_and(|n| NON_HTTP_PROCESSES.contains(&n)) {
+        return false;
+    }
+    true
+}
+
 #[derive(Default)]
 pub struct ProjectLabels {
     pub package_manager: Option<String>,
@@ -195,6 +218,29 @@ mod tests {
         );
         assert_eq!(detect_framework(Some("node"), None), None);
         assert_eq!(detect_framework(None, None), None);
+    }
+
+    #[test]
+    fn http_looking_denies_known_non_http_signals() {
+        assert!(!http_looking(22, None, None), "ssh port");
+        assert!(!http_looking(5432, None, None), "postgres port");
+        assert!(
+            !http_looking(54329, Some("postgres"), Some("Postgres")),
+            "postgres framework on an odd port"
+        );
+        assert!(!http_looking(6380, None, Some("Redis")), "redis framework");
+        assert!(
+            !http_looking(2222, Some("sshd"), None),
+            "sshd on an odd port"
+        );
+    }
+
+    #[test]
+    fn http_looking_defaults_to_yes_for_dev_servers_and_unknowns() {
+        assert!(http_looking(3000, Some("node"), Some("Next.js")));
+        assert!(http_looking(5173, Some("node"), Some("Vite")));
+        assert!(http_looking(8080, None, None), "unknown wildcard listener");
+        assert!(http_looking(631, None, None), "CUPS serves a real web UI");
     }
 
     #[test]
