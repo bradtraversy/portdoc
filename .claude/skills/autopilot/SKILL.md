@@ -160,13 +160,14 @@ Stop with a concise review packet:
 - changed files and why each changed
 - build/test/check commands run, with pass or fail
 - screenshots or output paths, when relevant
+- how to try it manually, or a pointer to `/try` for the full walkthrough
 - checkpoint commits created
 - self-review findings
 - unresolved risks or skipped checks
 - exact next action
 
 If everything is green, the next action is usually: review the diff, then run
-`/complete`.
+`/try` if you want a manual walkthrough, then `/complete`.
 
 If something failed, name the failing check and the next fix target.
 

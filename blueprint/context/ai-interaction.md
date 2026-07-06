@@ -57,20 +57,28 @@ something done.
    logic must ship a passing test and the test command must be green before the
    step is approved; UI and integration steps ride on screenshot plus build
    evidence. See the Testing section of `coding-standards.md` for the gate.
-6. **Iterate** - If it doesn't work or needs changes, re-prompt or hand-edit and
+6. **Try manually (optional)** - Run `/try` when you want a human walkthrough:
+   what to start, where to go, what to click or run, what to expect, and what
+   would count as wrong. `/check` proves behavior from the agent side; `/try`
+   gives you the manual review path.
+7. **Audit (optional)** - Run `/audit` when you want a read-only code quality pass
+   before closing a feature or after a larger automated run. It checks for
+   duplication, dead code, missing tests for logic, standards drift, and
+   maintainability risks. Fixes still happen through `/implement` or `/fix`.
+8. **Iterate** - If it doesn't work or needs changes, re-prompt or hand-edit and
    re-test; repeat until it works, before moving on.
-7. **Checkpoint (optional)** - after an approved step `/implement` offers a quick
+9. **Checkpoint (optional)** - after an approved step `/implement` offers a quick
    choice (continue / commit a checkpoint / walk me through it / stop here) as a
    selectable popup, or in plain text when there's a lot to read first so it doesn't
    cover what you're reading. Checkpoints are optional cheap rollback points; "walk
    me through it" gives a deeper code explanation and loops back; `/complete` makes
    the real feature-level commit. Build and tests must pass before any commit.
-8. **Log** - `/complete` archives the spec to `blueprint/history/features/NN-name.md` (or
+10. **Log** - `/complete` archives the spec to `blueprint/history/features/NN-name.md` (or
    `blueprint/history/fixes/`), checks the feature off in `blueprint/build-plan.md`, and
    resets `blueprint/context/current-feature.md` to its stub.
-9. **Feature commit** - `/complete` stages everything on the branch (step work
+11. **Feature commit** - `/complete` stages everything on the branch (step work
    plus the logging changes) into one conventional feature commit.
-10. **Squash-merge** - `/complete` squash-merges the branch to main (explicit yes)
+12. **Squash-merge** - `/complete` squash-merges the branch to main (explicit yes)
     and deletes it, so the feature lands as one commit; push stays a separate
     explicit yes.
 

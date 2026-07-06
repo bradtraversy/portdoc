@@ -57,6 +57,8 @@ Core skills:
 - `tests` - add or normalize unit testing and turn on the test gate
 - `implement` - build the current spec one small, reviewed step at a time
 - `check` - prove the current spec against the running app
+- `try` - read-only manual review guide: where to go, what to click, what to expect
+- `audit` - read-only code quality review for duplication, dead code, standards drift, and maintainability risks
 - `complete` - log it to `blueprint/history/features/` or `blueprint/history/fixes/`, then merge
 - `prototype` - optional, pre-build static mockups to lock the look
 - `status` - read-only progress summary, workflow drift warning, and suggested next action
