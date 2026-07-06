@@ -1,5 +1,6 @@
 mod adapter;
 mod probe;
+mod project;
 mod snapshot;
 
 use std::net::SocketAddr;

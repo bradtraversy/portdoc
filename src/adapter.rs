@@ -4,10 +4,12 @@
 
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::probe::{ListeningSocket, ProbeError, ProbeOutput, ProcessInfo, platform_probe};
-use crate::snapshot::{DevSnapshot, Exposure, Service};
+use crate::project::{Marker, detect_root, fs_marker};
+use crate::snapshot::{DevSnapshot, Exposure, ProjectGroup, Service};
 
 /// Probe this machine and adapt the result. A platform without a probe
 /// yields an empty snapshot, not an error.
@@ -20,10 +22,13 @@ pub fn live_snapshot() -> Result<DevSnapshot, ProbeError> {
 }
 
 fn from_probe(output: ProbeOutput) -> DevSnapshot {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let mut services = services_from(output.sockets);
+    let projects = group_projects(&mut services, home.as_deref(), fs_marker);
     DevSnapshot {
         generated_at: now_ms(),
-        services: services_from(output.sockets),
-        projects: Vec::new(),
+        services,
+        projects,
         conflicts: Vec::new(),
         docker_hints: Vec::new(),
     }
@@ -132,6 +137,104 @@ fn exposure(addrs: &[IpAddr]) -> Exposure {
     } else {
         Exposure::Unknown
     }
+}
+
+/// Detect each service's project root, emit one sorted `ProjectGroup` per
+/// distinct root, and point member services at their group.
+fn group_projects(
+    services: &mut [Service],
+    home: Option<&Path>,
+    marker_at: impl Fn(&Path) -> Option<Marker>,
+) -> Vec<ProjectGroup> {
+    let mut root_by_cwd: HashMap<String, Option<PathBuf>> = HashMap::new();
+    let mut members_by_root: Vec<(PathBuf, Vec<usize>)> = Vec::new();
+    let mut index_of_root: HashMap<PathBuf, usize> = HashMap::new();
+
+    for (i, service) in services.iter().enumerate() {
+        let Some(cwd) = service.cwd.as_deref() else {
+            continue;
+        };
+        let root = root_by_cwd
+            .entry(cwd.to_string())
+            .or_insert_with(|| detect_root(Path::new(cwd), home, &marker_at))
+            .clone();
+        let Some(root) = root else { continue };
+        match index_of_root.get(&root) {
+            Some(&idx) => members_by_root[idx].1.push(i),
+            None => {
+                index_of_root.insert(root.clone(), members_by_root.len());
+                members_by_root.push((root, vec![i]));
+            }
+        }
+    }
+
+    let ids = project_ids(&members_by_root);
+    let mut groups: Vec<ProjectGroup> = members_by_root
+        .iter()
+        .zip(&ids)
+        .map(|((root, members), id)| {
+            for &i in members {
+                services[i].project_id = Some(id.clone());
+            }
+            ProjectGroup {
+                id: id.clone(),
+                name: basename(root),
+                root: display_root(root, home),
+                package_manager: None,
+                git_branch: None,
+                service_ids: members.iter().map(|&i| services[i].id.clone()).collect(),
+            }
+        })
+        .collect();
+
+    groups.sort_by(|a, b| a.name.cmp(&b.name));
+    groups
+}
+
+/// `proj-{slug(basename)}`, parent-qualified only when two distinct roots
+/// share a basename slug.
+fn project_ids(members_by_root: &[(PathBuf, Vec<usize>)]) -> Vec<String> {
+    let slugs: Vec<String> = members_by_root
+        .iter()
+        .map(|(root, _)| slug(Some(basename(root).as_str())))
+        .collect();
+
+    let mut counts: HashMap<&str, u32> = HashMap::new();
+    for slug in &slugs {
+        *counts.entry(slug).or_default() += 1;
+    }
+
+    members_by_root
+        .iter()
+        .zip(&slugs)
+        .map(|((root, _), s)| {
+            if counts[s.as_str()] > 1 {
+                let parent = root
+                    .parent()
+                    .map(|p| slug(Some(basename(p).as_str())))
+                    .unwrap_or_else(|| "root".into());
+                format!("proj-{parent}-{s}")
+            } else {
+                format!("proj-{s}")
+            }
+        })
+        .collect()
+}
+
+/// detect_root never returns a path without a final component.
+fn basename(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+fn display_root(root: &Path, home: Option<&Path>) -> String {
+    if let Some(home) = home
+        && let Ok(rel) = root.strip_prefix(home)
+    {
+        return format!("~/{}", rel.display());
+    }
+    root.display().to_string()
 }
 
 fn humanize_age(secs: u64) -> String {
@@ -296,6 +399,153 @@ mod tests {
         assert_eq!(svc.cwd.as_deref(), Some("/home/brad/Code/app"));
         assert_eq!(svc.user.as_deref(), Some("brad"));
         assert_eq!(svc.id, "svc-5432-postgres");
+    }
+
+    fn proc_at(pid: u32, name: &str, cwd: &str) -> ProcessInfo {
+        ProcessInfo {
+            cwd: Some(cwd.into()),
+            ..proc_info(pid, name)
+        }
+    }
+
+    fn grouped(
+        sockets: Vec<ListeningSocket>,
+        markers: &[(&str, Marker)],
+    ) -> (Vec<Service>, Vec<ProjectGroup>) {
+        let map: HashMap<PathBuf, Marker> = markers
+            .iter()
+            .map(|(p, m)| (PathBuf::from(p), *m))
+            .collect();
+        let mut services = services_from(sockets);
+        let projects = group_projects(&mut services, Some(Path::new("/home/brad")), |dir| {
+            map.get(dir).copied()
+        });
+        (services, projects)
+    }
+
+    #[test]
+    fn services_group_by_detected_root_sorted_by_name() {
+        let (services, projects) = grouped(
+            vec![
+                sock(
+                    "127.0.0.1",
+                    3000,
+                    Some(10),
+                    Some(proc_at(10, "node", "/home/brad/Code/startdev")),
+                ),
+                sock(
+                    "127.0.0.1",
+                    3001,
+                    Some(20),
+                    Some(proc_at(20, "node", "/home/brad/Code/certificreate")),
+                ),
+                sock(
+                    "127.0.0.1",
+                    3002,
+                    Some(30),
+                    Some(proc_at(30, "node", "/home/brad/Code/startdev/apps/web")),
+                ),
+                sock("127.0.0.1", 8080, None, None),
+                sock(
+                    "127.0.0.1",
+                    9000,
+                    Some(40),
+                    Some(proc_at(40, "misc", "/home/brad/Downloads")),
+                ),
+            ],
+            &[
+                ("/home/brad/Code/startdev", Marker::Repo),
+                ("/home/brad/Code/certificreate", Marker::Repo),
+            ],
+        );
+
+        assert_eq!(projects.len(), 2);
+        assert_eq!(projects[0].name, "certificreate");
+        assert_eq!(projects[0].id, "proj-certificreate");
+        assert_eq!(projects[0].root, "~/Code/certificreate");
+        assert_eq!(projects[1].name, "startdev");
+        assert_eq!(projects[1].service_ids.len(), 2);
+
+        let by_port: HashMap<u16, &Service> = services.iter().map(|s| (s.port, s)).collect();
+        assert_eq!(by_port[&3000].project_id.as_deref(), Some("proj-startdev"));
+        assert_eq!(by_port[&3002].project_id.as_deref(), Some("proj-startdev"));
+        assert_eq!(
+            by_port[&3001].project_id.as_deref(),
+            Some("proj-certificreate")
+        );
+        assert!(
+            by_port[&8080].project_id.is_none(),
+            "no cwd stays ungrouped"
+        );
+        assert!(
+            by_port[&9000].project_id.is_none(),
+            "no marker stays ungrouped"
+        );
+    }
+
+    #[test]
+    fn group_service_ids_match_member_services_in_port_order() {
+        let (services, projects) = grouped(
+            vec![
+                sock(
+                    "127.0.0.1",
+                    3002,
+                    Some(30),
+                    Some(proc_at(30, "node", "/home/brad/Code/app/web")),
+                ),
+                sock(
+                    "127.0.0.1",
+                    3000,
+                    Some(10),
+                    Some(proc_at(10, "node", "/home/brad/Code/app")),
+                ),
+            ],
+            &[("/home/brad/Code/app", Marker::Repo)],
+        );
+        let expected: Vec<String> = services.iter().map(|s| s.id.clone()).collect();
+        assert_eq!(projects[0].service_ids, expected);
+        assert_eq!(services[0].port, 3000, "services stay port-sorted");
+    }
+
+    #[test]
+    fn colliding_basenames_get_parent_qualified_ids() {
+        let (_, projects) = grouped(
+            vec![
+                sock(
+                    "127.0.0.1",
+                    3000,
+                    Some(10),
+                    Some(proc_at(10, "node", "/home/brad/Code/app")),
+                ),
+                sock(
+                    "127.0.0.1",
+                    4000,
+                    Some(20),
+                    Some(proc_at(20, "node", "/home/brad/Work/app")),
+                ),
+            ],
+            &[
+                ("/home/brad/Code/app", Marker::Repo),
+                ("/home/brad/Work/app", Marker::Repo),
+            ],
+        );
+        let ids: Vec<&str> = projects.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, vec!["proj-code-app", "proj-work-app"]);
+    }
+
+    #[test]
+    fn roots_outside_home_display_absolute() {
+        let (_, projects) = grouped(
+            vec![sock(
+                "127.0.0.1",
+                3000,
+                Some(10),
+                Some(proc_at(10, "node", "/srv/tool/sub")),
+            )],
+            &[("/srv/tool", Marker::Package)],
+        );
+        assert_eq!(projects[0].root, "/srv/tool");
+        assert_eq!(projects[0].id, "proj-tool");
     }
 
     #[test]
