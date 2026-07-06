@@ -97,10 +97,10 @@ working shape; **feature 1 locks the JSON contract** and every later feature
 - **tokio** - async runtime
 - **clap** - CLI: `portdoc`, `portdoc ui`, `--no-open`, `--port`, `--json`
 - **serde / serde_json** - `DevSnapshot` serialization (add with feature 1)
-- **/proc, procfs, sysinfo** - Linux probing behind a platform abstraction for later macOS/Windows support
-- **rust-embed or include_dir** - embed `web/dist` in the binary once the first vertical slice works (feature 2 picks one)
+- **/proc, procfs** - Linux probing behind a platform abstraction (the `probe/` module) for later macOS/Windows support
+- **rust-embed** - embeds `web/dist` in release builds (decided at feature 2); debug builds read it from disk
 - **React + TypeScript + Vite** - frontend in `web/`
-- **Tailwind CSS, shadcn/ui-style components, TanStack Table, Lucide** - planned control panel UI (not yet installed; adopt with the first real UI feature)
+- **Tailwind CSS, shadcn/ui-style components, TanStack Table, Lucide** - the control panel UI stack, installed at feature 3
 
 ## Monetization
 
@@ -128,5 +128,7 @@ always confirm, graceful first, force only behind a second explicit yes.
 > Resolve in the plans, then re-run /overview.
 
 - **macOS/Windows gap:** feature 15 ships macOS and Windows release builds, but no build item implements probing for those platforms (feature 4 is explicitly Linux-first). Either add probe items for those platforms before 15, or scope 15's installers to Linux-first.
-- **`portdoc ui` subcommand:** named in the project plan's CLI list but no build item explicitly owns it; features 1-2 should decide the CLI surface (default command vs `ui` subcommand).
 - **Local config storage:** "ignore service" (feature 13) implies persisted local config, but its location/format is undecided.
+
+> Resolved: `portdoc ui` shipped at feature 2 as an explicit alias of the
+> default launch command.

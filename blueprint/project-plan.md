@@ -52,8 +52,8 @@ Rust single binary with `axum`, `tokio`, `clap`, `serde`, and `serde_json`.
 Linux probing starts with `/proc`, `procfs`, `sysinfo`, and a platform abstraction
 for later macOS and Windows support. The frontend is React, TypeScript, and Vite
 in `web/`, with Tailwind CSS, shadcn/ui style components, TanStack Table, and
-Lucide planned for the control panel UI. Static assets should be embedded with
-`rust-embed` or `include_dir` once the first vertical slice is ready.
+Lucide planned for the control panel UI. Static assets are embedded with
+`rust-embed` (decided at build item 2; debug builds read `web/dist` from disk).
 
 ## 6. Monetize - How will this make money?
 
