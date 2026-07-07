@@ -20,11 +20,24 @@ const placeholders: Record<
 
 export default function App() {
   const [tab, setTab] = useState<TabId>('dashboard')
+  const [query, setQuery] = useState('')
   const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
+
+  // typing anywhere jumps to the Services tab with the query applied
+  const searchFrom = (q: string) => {
+    setQuery(q)
+    if (q && tab !== 'services') setTab('services')
+  }
 
   return (
     <div className="min-h-screen">
-      <TopBar fetchedAt={fetchedAt} refreshing={loading} onRefresh={() => void refresh()} />
+      <TopBar
+        fetchedAt={fetchedAt}
+        refreshing={loading}
+        onRefresh={() => void refresh()}
+        query={query}
+        onQueryChange={searchFrom}
+      />
       <TabBar active={tab} onSelect={setTab} snapshot={snapshot} />
       <main className="mx-auto grid max-w-[1180px] content-start gap-4 p-5 pb-12">
         {error && (
@@ -42,7 +55,9 @@ export default function App() {
         {snapshot && tab === 'dashboard' && (
           <DashboardView snapshot={snapshot} onNavigate={setTab} />
         )}
-        {snapshot && tab === 'services' && <ServicesTable snapshot={snapshot} />}
+        {snapshot && tab === 'services' && (
+          <ServicesTable snapshot={snapshot} query={query} onQueryChange={setQuery} />
+        )}
         {snapshot && tab === 'conflicts' && <ConflictsView snapshot={snapshot} />}
         {snapshot && tab !== 'dashboard' && tab !== 'services' && tab !== 'conflicts' && (
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />

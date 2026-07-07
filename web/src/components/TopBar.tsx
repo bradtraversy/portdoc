@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Clock, RefreshCw } from 'lucide-react'
+import { Clock, RefreshCw, Search } from 'lucide-react'
 import { Button } from './ui/button'
 
 function SnapshotAge({ fetchedAt }: { fetchedAt: number | null }) {
@@ -25,9 +25,11 @@ interface TopBarProps {
   fetchedAt: number | null
   refreshing: boolean
   onRefresh: () => void
+  query: string
+  onQueryChange: (query: string) => void
 }
 
-export function TopBar({ fetchedAt, refreshing, onRefresh }: TopBarProps) {
+export function TopBar({ fetchedAt, refreshing, onRefresh, query, onQueryChange }: TopBarProps) {
   return (
     <header className="flex items-center gap-3 border-b border-border bg-surface px-5 py-2.5">
       <div className="flex items-center gap-2 text-[15px] font-bold">
@@ -52,6 +54,16 @@ export function TopBar({ fetchedAt, refreshing, onRefresh }: TopBarProps) {
         {window.location.host}
       </span>
       <div className="ml-auto flex items-center gap-3">
+        <label className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search services"
+            className="w-48 rounded-md border border-border bg-surface-2 py-1 pl-8 pr-2.5 text-sm text-text placeholder:text-faint focus:border-accent focus:outline-none"
+          />
+        </label>
         <SnapshotAge fetchedAt={fetchedAt} />
         <Button onClick={onRefresh} disabled={refreshing}>
           <RefreshCw className="size-3.5" />

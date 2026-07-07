@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import {
   createColumnHelper,
   flexRender,
@@ -8,6 +9,7 @@ import { EllipsisVertical, ExternalLink, Square } from 'lucide-react'
 import type { BadgeVariant } from './ui/badge'
 import type { DevSnapshot, DockerHint, Exposure, ProjectGroup, Service } from '../lib/types'
 import { conflictedIds, isSelf } from '../lib/derive'
+import { CHIPS, type FilterChip, matchesChip, matchesQuery } from '../lib/filter'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { cn } from '../lib/cn'
@@ -172,23 +174,85 @@ const columns = [
   }),
 ]
 
-export function ServicesTable({ snapshot }: { snapshot: DevSnapshot }) {
-  const conflicted = conflictedIds(snapshot)
-  const projectById = new Map(snapshot.projects.map((p) => [p.id, p]))
-  const hintFor = new Map(
-    snapshot.docker_hints.filter((h) => h.service_id).map((h) => [h.service_id, h]),
-  )
-  const rows: Row[] = snapshot.services.map((service) => ({
-    service,
-    project: service.project_id ? projectById.get(service.project_id) : undefined,
-    dockerHint: hintFor.get(service.id),
-    conflicted: conflicted.has(service.id),
-  }))
+interface ServicesTableProps {
+  snapshot: DevSnapshot
+  query: string
+  onQueryChange: (query: string) => void
+}
 
-  const table = useReactTable({ data: rows, columns, getCoreRowModel: getCoreRowModel() })
+export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableProps) {
+  const [chips, setChips] = useState<ReadonlySet<FilterChip>>(new Set())
+
+  // TanStack compares data by reference; unstable arrays here cause
+  // infinite re-render loops (froze the tab when search landed).
+  const rows: Row[] = useMemo(() => {
+    const conflicted = conflictedIds(snapshot)
+    const projectById = new Map(snapshot.projects.map((p) => [p.id, p]))
+    const hintFor = new Map(
+      snapshot.docker_hints.filter((h) => h.service_id).map((h) => [h.service_id, h]),
+    )
+    return snapshot.services.map((service) => ({
+      service,
+      project: service.project_id ? projectById.get(service.project_id) : undefined,
+      dockerHint: hintFor.get(service.id),
+      conflicted: conflicted.has(service.id),
+    }))
+  }, [snapshot])
+
+  // chips OR together; the text query ANDs on top
+  const filtered = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          matchesQuery(row.service, query, row.project?.name) &&
+          (chips.size === 0 ||
+            [...chips].some((c) => matchesChip(c, row.service, row.conflicted))),
+      ),
+    [rows, query, chips],
+  )
+  const table = useReactTable({ data: filtered, columns, getCoreRowModel: getCoreRowModel() })
+
+  const toggleChip = (chip: FilterChip) => {
+    setChips((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(chip)) next.add(chip)
+      return next
+    })
+  }
+  const hasFilters = query !== '' || chips.size > 0
+  const clearFilters = () => {
+    onQueryChange('')
+    setChips(new Set())
+  }
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-2">
+        {CHIPS.map(({ id, label }) => {
+          const active = chips.has(id)
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggleChip(id)}
+              aria-pressed={active}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                active
+                  ? 'border-accent text-accent'
+                  : 'border-border bg-surface text-muted hover:border-border-strong hover:text-text',
+              )}
+            >
+              {label}
+            </button>
+          )
+        })}
+        {hasFilters && (
+          <Button size="sm" variant="ghost" onClick={clearFilters}>
+            Clear
+          </Button>
+        )}
+      </div>
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -204,6 +268,20 @@ export function ServicesTable({ snapshot }: { snapshot: DevSnapshot }) {
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="px-3 py-8 text-center text-sm text-faint">
+                  No services match.{' '}
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="text-accent hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                </td>
+              </tr>
+            )}
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id} className="group border-b border-border last:border-b-0 hover:bg-surface-2">
                 {row.getVisibleCells().map((cell, i) => (
@@ -225,7 +303,10 @@ export function ServicesTable({ snapshot }: { snapshot: DevSnapshot }) {
         </table>
       </div>
       <p className="px-1 text-xs text-faint">
-        {snapshot.services.length} services · sorted by project · hover a row for actions
+        {filtered.length === rows.length
+          ? `${rows.length} services`
+          : `${filtered.length} of ${rows.length} services`}{' '}
+        · hover a row for actions
       </p>
     </>
   )
