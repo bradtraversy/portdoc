@@ -1,5 +1,7 @@
 //! Developer-facing labels (feature 8): framework detection from command
 //! lines, plus package manager and git branch detection at project roots.
+//! Feature 14a extends the vocabulary with desktop apps (VS Code, Discord,
+//! browsers) so their helper processes stop reading as mystery rows.
 
 use std::path::Path;
 
@@ -20,6 +22,21 @@ const FRAMEWORKS: [(&str, &[&str]); 11] = [
     ("Redis", &["redis-server"]),
 ];
 
+/// Desktop apps whose helpers hold local ports. Fallback vocabulary: any
+/// framework match wins first. Path-valued flags carry signal through the
+/// basename cleaning ("--user-data-dir=.../.config/discord" -> "discord").
+const DESKTOP_APPS: [(&str, &[&str]); 9] = [
+    ("VS Code", &["code", "code-insiders"]),
+    ("Discord", &["discord"]),
+    ("Chrome", &["chrome"]),
+    ("Chromium", &["chromium", "chromium-browser"]),
+    ("Firefox", &["firefox"]),
+    ("Brave", &["brave", "brave-browser"]),
+    ("Slack", &["slack"]),
+    ("Spotify", &["spotify"]),
+    ("Electron", &["electron"]),
+];
+
 pub fn detect_framework(name: Option<&str>, command: Option<&str>) -> Option<String> {
     let tokens: Vec<String> = name
         .into_iter()
@@ -35,6 +52,7 @@ pub fn detect_framework(name: Option<&str>, command: Option<&str>) -> Option<Str
 
     FRAMEWORKS
         .iter()
+        .chain(DESKTOP_APPS.iter())
         .find(|(_, ids)| ids.iter().any(|id| tokens.iter().any(|t| t == id)))
         .map(|(label, _)| (*label).into())
 }
@@ -197,6 +215,53 @@ mod tests {
     #[test]
     fn specific_tools_beat_runtimes() {
         assert_eq!(detect("bunx vite dev").as_deref(), Some("Vite"));
+    }
+
+    #[test]
+    fn detects_desktop_apps_from_real_command_shapes() {
+        let cases = [
+            (
+                Some("code"),
+                Some("/snap/code/247/usr/share/code/code /home/brad/.vscode/extensions/ms-python.vscode-pylance-2026.2.1/dist/server.bundle.js --node-ipc"),
+                "VS Code",
+            ),
+            (
+                Some("exe"),
+                Some("/proc/self/exe --type=renderer --user-data-dir=/home/brad/.config/discord --app-path=/home/brad/.config/discord/app-1.0.143/resources/app.asar"),
+                "Discord",
+            ),
+            (Some("chrome"), Some("/opt/google/chrome/chrome --type=utility"), "Chrome"),
+            (Some("firefox"), Some("/usr/lib/firefox/firefox -new-instance"), "Firefox"),
+            (Some("slack"), Some("/usr/lib/slack/slack --type=renderer"), "Slack"),
+            (None, Some("/usr/bin/electron /home/brad/app/main.js"), "Electron"),
+        ];
+        for (name, command, expected) in cases {
+            assert_eq!(
+                detect_framework(name, command).as_deref(),
+                Some(expected),
+                "for: {command:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn frameworks_beat_desktop_apps() {
+        assert_eq!(
+            detect_framework(
+                Some("code"),
+                Some("/snap/code/247/usr/share/code/code /repo/node_modules/.bin/vite dev"),
+            )
+            .as_deref(),
+            Some("Vite"),
+            "a framework token wins even when an app token is present"
+        );
+    }
+
+    #[test]
+    fn desktop_apps_match_basenames_not_substrings() {
+        assert_eq!(detect("node /opt/discord-clone/server.js"), None);
+        assert_eq!(detect("node /home/brad/chrome-extension-api/index.js"), None);
+        assert_eq!(detect("ssh -L 8642:localhost:8642 trav-ai"), None);
     }
 
     #[test]
