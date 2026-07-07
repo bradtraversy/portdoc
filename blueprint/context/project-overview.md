@@ -36,7 +36,8 @@ In build-plan order. The headline feature is the **project-grouped dashboard**
 10. **Conflicts and stale hints** - port conflicts, stale dev servers, old project processes, expected-but-missing apps, conflict actions.
 11. **Search and filters** - filters for framework, runtime, API, database, Docker, unknown, LAN visible, stale, conflict, plus text search.
 12. **Safe stop action** - stop a service or port with confirmation: show PID/command/cwd first, graceful stop, verify port release, force kill only behind a second explicit confirmation.
-13. **Inspect drawer and quick actions** - service details, open/copy URL, reveal project folder, copy kill command, ignore service, advanced process details.
+13a. **Inspect drawer and port lookup** - a dashboard "look up a port" field opens an inspect drawer for that exact port (one listener, nothing, or conflict contenders); clicking a row opens the same drawer. Full details plus non-persistent quick actions (open/copy URL, copy kill command, reveal folder, stop). No config storage.
+13b. **Ignore service** - hide a service, persisted in local config; depends on the undecided config-storage location/format, built after 13a.
 14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics (well-known-port hints like ":22 - usually SSH" plus why the owner is unreadable), desktop app labels (VS Code, Discord) extending the feature 8 vocabulary, kept out of the main dashboard.
 15. **Release and install path** - Linux/macOS/Windows release builds, checksums, `install.sh`, `install.ps1`, README docs, toward one-command installs from `portdoc.dev`.
 

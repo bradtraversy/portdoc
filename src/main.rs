@@ -70,6 +70,7 @@ async fn main() {
         .route("/api/health", get(health))
         .route("/api/snapshot", get(api_snapshot))
         .route("/api/stop", post(api_stop))
+        .route("/api/reveal", post(api_reveal))
         .fallback(static_handler);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
@@ -251,6 +252,56 @@ fn stop_outcome(released: bool) -> Response {
         "still_listening"
     };
     Json(json!({ "outcome": outcome })).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct RevealRequest {
+    path: String,
+}
+
+/// Opens a folder in the OS file manager. A browser cannot, so the server
+/// does it - but only for a path that resolves to an existing directory.
+async fn api_reveal(Json(request): Json<RevealRequest>) -> Response {
+    let path = std::path::PathBuf::from(&request.path);
+    let is_dir = std::fs::metadata(&path).ok().map(|m| m.is_dir());
+    if let Err(message) = validate_reveal_path(&path, is_dir) {
+        return api_error(StatusCode::BAD_REQUEST, message);
+    }
+    match open::that_detached(&path) {
+        Ok(()) => Json(json!({})).into_response(),
+        Err(err) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("could not open folder: {err}"),
+        ),
+    }
+}
+
+/// Pure: `is_dir` is None when the path is missing, Some(false) for a file.
+/// Kept separate from the fs lookup so it unit-tests without touching the
+/// real file manager.
+fn validate_reveal_path(path: &std::path::Path, is_dir: Option<bool>) -> Result<(), String> {
+    if path.as_os_str().is_empty() {
+        return Err("no path provided".into());
+    }
+    match is_dir {
+        Some(true) => Ok(()),
+        Some(false) => Err("path is not a directory".into()),
+        None => Err("path does not exist".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_reveal_path;
+    use std::path::Path;
+
+    #[test]
+    fn reveal_path_accepts_only_existing_directories() {
+        assert!(validate_reveal_path(Path::new("/home/brad/Code"), Some(true)).is_ok());
+        assert!(validate_reveal_path(Path::new("/home/brad/f.txt"), Some(false)).is_err());
+        assert!(validate_reveal_path(Path::new("/nope"), None).is_err());
+        assert!(validate_reveal_path(Path::new(""), Some(true)).is_err());
+    }
 }
 
 fn still_listening(port: u16, pid: u32) -> bool {

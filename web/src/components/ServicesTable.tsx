@@ -8,8 +8,9 @@ import {
 import { EllipsisVertical, ExternalLink, Square } from 'lucide-react'
 import type { BadgeVariant } from './ui/badge'
 import type { DevSnapshot, DockerHint, Exposure, ProjectGroup, Service } from '../lib/types'
-import { canStop, conflictedIds, isSelf, stopBlockedReason } from '../lib/derive'
+import { canStop, conflictedIds, displayName, isSelf, stopBlockedReason } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
+import { useInspect } from '../lib/inspect'
 import { CHIPS, type FilterChip, matchesChip, matchesQuery } from '../lib/filter'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -39,9 +40,13 @@ const columns = [
     cell: ({ row }) => (
       <span className="flex items-center gap-2">
         <span className={cn('font-semibold', row.original.service.stale && 'text-muted')}>
-          {row.original.service.process_name ?? 'unknown'}
+          {displayName(row.original.service)}
         </span>
-        {row.original.service.framework && <Badge>{row.original.service.framework}</Badge>}
+        {row.original.service.framework && row.original.service.process_name && (
+          <span className="font-mono text-xs text-faint">
+            {row.original.service.process_name}
+          </span>
+        )}
       </span>
     ),
   }),
@@ -186,6 +191,7 @@ interface ServicesTableProps {
 export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableProps) {
   const [chips, setChips] = useState<ReadonlySet<FilterChip>>(new Set())
   const requestStop = useRequestStop()
+  const inspect = useInspect()
 
   // TanStack compares data by reference; unstable arrays here cause
   // infinite re-render loops (froze the tab when search landed).
@@ -288,10 +294,15 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
               </tr>
             )}
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="group border-b border-border last:border-b-0 hover:bg-surface-2">
+              <tr
+                key={row.id}
+                className="group cursor-pointer border-b border-border last:border-b-0 hover:bg-surface-2"
+                onClick={() => inspect({ services: [row.original.service] })}
+              >
                 {row.getVisibleCells().map((cell, i) => (
                   <td
                     key={cell.id}
+                    onClick={cell.column.id === 'actions' ? (e) => e.stopPropagation() : undefined}
                     className={cn(
                       'whitespace-nowrap px-3 py-[7px] align-middle',
                       i === 0 &&
@@ -311,7 +322,7 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
         {filtered.length === rows.length
           ? `${rows.length} services`
           : `${filtered.length} of ${rows.length} services`}{' '}
-        · hover a row for actions
+        · click a row to inspect
       </p>
     </>
   )

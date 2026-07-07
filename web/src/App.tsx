@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useSnapshot } from './lib/useSnapshot'
 import { StopContext } from './lib/stop'
+import { InspectContext, type InspectTarget } from './lib/inspect'
 import type { Service } from './lib/types'
 import { TopBar } from './components/TopBar'
 import { TabBar, type TabId } from './components/TabBar'
@@ -10,6 +11,7 @@ import { DashboardView } from './components/DashboardView'
 import { ServicesTable } from './components/ServicesTable'
 import { ConflictsView } from './components/ConflictsView'
 import { StopDialog } from './components/StopDialog'
+import { InspectDrawer } from './components/InspectDrawer'
 import { Button } from './components/ui/button'
 
 const placeholders: Record<
@@ -25,6 +27,7 @@ export default function App() {
   const [tab, setTab] = useState<TabId>('dashboard')
   const [query, setQuery] = useState('')
   const [stopTarget, setStopTarget] = useState<Service | null>(null)
+  const [inspect, setInspect] = useState<InspectTarget | null>(null)
   const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
 
   // typing anywhere jumps to the Services tab with the query applied
@@ -35,6 +38,7 @@ export default function App() {
 
   return (
     <StopContext.Provider value={setStopTarget}>
+    <InspectContext.Provider value={setInspect}>
     <div className="min-h-screen">
       <TopBar
         fetchedAt={fetchedAt}
@@ -68,6 +72,9 @@ export default function App() {
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
         )}
       </main>
+      {snapshot && inspect && (
+        <InspectDrawer target={inspect} snapshot={snapshot} onClose={() => setInspect(null)} />
+      )}
       {stopTarget && (
         <StopDialog
           service={stopTarget}
@@ -79,6 +86,7 @@ export default function App() {
         />
       )}
     </div>
+    </InspectContext.Provider>
     </StopContext.Provider>
   )
 }
