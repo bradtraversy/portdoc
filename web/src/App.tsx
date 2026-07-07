@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useSnapshot } from './lib/useSnapshot'
+import { StopContext } from './lib/stop'
+import type { Service } from './lib/types'
 import { TopBar } from './components/TopBar'
 import { TabBar, type TabId } from './components/TabBar'
 import { Placeholder } from './components/Placeholder'
 import { DashboardView } from './components/DashboardView'
 import { ServicesTable } from './components/ServicesTable'
 import { ConflictsView } from './components/ConflictsView'
+import { StopDialog } from './components/StopDialog'
 import { Button } from './components/ui/button'
 
 const placeholders: Record<
@@ -21,6 +24,7 @@ const placeholders: Record<
 export default function App() {
   const [tab, setTab] = useState<TabId>('dashboard')
   const [query, setQuery] = useState('')
+  const [stopTarget, setStopTarget] = useState<Service | null>(null)
   const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
 
   // typing anywhere jumps to the Services tab with the query applied
@@ -30,6 +34,7 @@ export default function App() {
   }
 
   return (
+    <StopContext.Provider value={setStopTarget}>
     <div className="min-h-screen">
       <TopBar
         fetchedAt={fetchedAt}
@@ -63,6 +68,17 @@ export default function App() {
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
         )}
       </main>
+      {stopTarget && (
+        <StopDialog
+          service={stopTarget}
+          onClose={() => setStopTarget(null)}
+          onStopped={() => {
+            setStopTarget(null)
+            void refresh()
+          }}
+        />
+      )}
     </div>
+    </StopContext.Provider>
   )
 }

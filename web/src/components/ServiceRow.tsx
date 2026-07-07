@@ -1,6 +1,7 @@
 import { EllipsisVertical, ExternalLink, Shield, Square } from 'lucide-react'
 import type { DockerHint, Service } from '../lib/types'
-import { isSelf } from '../lib/derive'
+import { canStop, isSelf, stopBlockedReason } from '../lib/derive'
+import { useRequestStop } from '../lib/stop'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -23,6 +24,8 @@ function subLine(service: Service, dockerHint?: DockerHint): string | undefined 
 export function ServiceRow({ service, conflicted, dockerHint }: ServiceRowProps) {
   const self = isSelf(service)
   const sub = subLine(service, dockerHint)
+  const requestStop = useRequestStop()
+  const stoppable = canStop(service)
 
   return (
     <div className="group grid grid-cols-[64px_1fr_auto] items-center gap-3.5 border-b border-border px-4 py-2 last:border-b-0 hover:bg-surface-2">
@@ -61,8 +64,9 @@ export function ServiceRow({ service, conflicted, dockerHint }: ServiceRowProps)
           <Button
             size="sm"
             variant="ghost"
-            disabled
-            title={self ? 'Protected - PortDoc will not stop itself' : 'Safe stop lands with feature 12'}
+            disabled={!stoppable}
+            title={stoppable ? undefined : stopBlockedReason(service)}
+            onClick={() => requestStop(service)}
           >
             <Square className="size-3" />
             Stop

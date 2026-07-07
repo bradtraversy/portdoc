@@ -1,12 +1,13 @@
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/cn'
 
-type ButtonVariant = 'default' | 'accent' | 'ghost'
+type ButtonVariant = 'default' | 'accent' | 'ghost' | 'danger'
 
 const variants: Record<ButtonVariant, string> = {
   default: 'bg-surface-2 text-text border-border-strong hover:border-faint',
   accent: 'bg-accent text-accent-ink border-transparent font-semibold hover:bg-accent-hover',
   ghost: 'bg-transparent text-muted border-transparent hover:text-text hover:border-border-strong',
+  danger: 'bg-danger text-white border-transparent font-semibold hover:opacity-90',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

@@ -1,3 +1,4 @@
+mod action;
 mod adapter;
 mod hint;
 mod label;
@@ -6,10 +7,11 @@ mod project;
 mod snapshot;
 
 use std::net::SocketAddr;
+use std::time::Duration;
 
 use axum::http::{StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use clap::Parser;
 use rust_embed::RustEmbed;
@@ -67,6 +69,7 @@ async fn main() {
     let app = Router::new()
         .route("/api/health", get(health))
         .route("/api/snapshot", get(api_snapshot))
+        .route("/api/stop", post(api_stop))
         .fallback(static_handler);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
@@ -155,11 +158,110 @@ async fn api_snapshot() -> Response {
 }
 
 fn snapshot_error(message: String) -> Response {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        Json(json!({ "error": message })),
-    )
-        .into_response()
+    api_error(StatusCode::INTERNAL_SERVER_ERROR, message)
+}
+
+fn api_error(status: StatusCode, message: String) -> Response {
+    (status, Json(json!({ "error": message }))).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct StopRequest {
+    service_id: String,
+    pid: u32,
+    #[serde(default)]
+    force: bool,
+}
+
+async fn api_stop(Json(request): Json<StopRequest>) -> Response {
+    match tokio::task::spawn_blocking(move || stop_service(request)).await {
+        Ok(response) => response,
+        Err(err) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("stop task failed: {err}"),
+        ),
+    }
+}
+
+/// The safety contract: no signal is ever sent to a pid that does not,
+/// right now, own the claimed service.
+fn stop_service(request: StopRequest) -> Response {
+    if request.pid == std::process::id() {
+        return api_error(StatusCode::FORBIDDEN, "PortDoc will not stop itself".into());
+    }
+
+    let snapshot = match adapter::live_snapshot() {
+        Ok(snapshot) => snapshot,
+        Err(err) => {
+            return api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("probe failed: {err}"),
+            );
+        }
+    };
+    let Some(service) = snapshot
+        .services
+        .iter()
+        .find(|s| s.id == request.service_id)
+    else {
+        return api_error(
+            StatusCode::CONFLICT,
+            "service not found - refresh and retry".into(),
+        );
+    };
+    match service.pid {
+        None => {
+            return api_error(
+                StatusCode::BAD_REQUEST,
+                "service has no known owner pid".into(),
+            );
+        }
+        Some(pid) if pid != request.pid => {
+            return api_error(
+                StatusCode::CONFLICT,
+                "service changed - refresh and retry".into(),
+            );
+        }
+        Some(_) => {}
+    }
+
+    let port = service.port;
+    match action::terminate(request.pid, request.force) {
+        Ok(()) => {}
+        // died between the probe and the signal: that is a release
+        Err(action::StopError::NoSuchProcess) => return stop_outcome(true),
+        Err(err @ action::StopError::NotPermitted) => {
+            return api_error(StatusCode::FORBIDDEN, err.to_string());
+        }
+        Err(err) => return api_error(StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+    }
+
+    let released = action::wait_released(
+        || still_listening(port, request.pid),
+        6,
+        Duration::from_millis(500),
+    );
+    stop_outcome(released)
+}
+
+fn stop_outcome(released: bool) -> Response {
+    let outcome = if released {
+        "released"
+    } else {
+        "still_listening"
+    };
+    Json(json!({ "outcome": outcome })).into_response()
+}
+
+fn still_listening(port: u16, pid: u32) -> bool {
+    probe::platform_probe()
+        .and_then(|probe| probe.probe().ok())
+        .is_some_and(|output| {
+            output
+                .sockets
+                .iter()
+                .any(|s| s.port == port && s.pid == Some(pid))
+        })
 }
 
 async fn shutdown_signal() {

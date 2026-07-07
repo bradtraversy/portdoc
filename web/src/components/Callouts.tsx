@@ -1,6 +1,7 @@
 import { Clock, TriangleAlert } from 'lucide-react'
 import type { DevSnapshot } from '../lib/types'
-import { staleUnconflicted } from '../lib/derive'
+import { canStop, staleUnconflicted, stopBlockedReason } from '../lib/derive'
+import { useRequestStop } from '../lib/stop'
 import type { TabId } from './TabBar'
 import { Button } from './ui/button'
 
@@ -10,6 +11,7 @@ interface CalloutsProps {
 }
 
 export function Callouts({ snapshot, onNavigate }: CalloutsProps) {
+  const requestStop = useRequestStop()
   return (
     <>
       {snapshot.conflicts.map((conflict) => (
@@ -47,7 +49,12 @@ export function Callouts({ snapshot, onNavigate }: CalloutsProps) {
             <Button size="sm" disabled title="Ignore lands with feature 13">
               Ignore
             </Button>
-            <Button size="sm" disabled title="Safe stop lands with feature 12">
+            <Button
+              size="sm"
+              disabled={!canStop(service)}
+              title={canStop(service) ? undefined : stopBlockedReason(service)}
+              onClick={() => requestStop(service)}
+            >
               Stop safely
             </Button>
           </span>

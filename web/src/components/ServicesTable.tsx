@@ -8,7 +8,8 @@ import {
 import { EllipsisVertical, ExternalLink, Square } from 'lucide-react'
 import type { BadgeVariant } from './ui/badge'
 import type { DevSnapshot, DockerHint, Exposure, ProjectGroup, Service } from '../lib/types'
-import { conflictedIds, isSelf } from '../lib/derive'
+import { canStop, conflictedIds, isSelf, stopBlockedReason } from '../lib/derive'
+import { useRequestStop } from '../lib/stop'
 import { CHIPS, type FilterChip, matchesChip, matchesQuery } from '../lib/filter'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -19,6 +20,7 @@ interface Row {
   project?: ProjectGroup
   dockerHint?: DockerHint
   conflicted: boolean
+  onStop: (service: Service) => void
 }
 
 const exposureVariant: Record<Exposure, BadgeVariant> = {
@@ -141,7 +143,7 @@ const columns = [
     header: '',
     cell: ({ row }) => {
       const { service } = row.original
-      const self = isSelf(service)
+      const stoppable = canStop(service)
       return (
         <span className="flex items-center justify-end gap-0.5">
           <span className="hidden gap-0.5 group-hover:inline-flex">
@@ -158,8 +160,9 @@ const columns = [
             <Button
               size="sm"
               variant="ghost"
-              disabled
-              title={self ? 'Protected - PortDoc will not stop itself' : 'Safe stop lands with feature 12'}
+              disabled={!stoppable}
+              title={stoppable ? undefined : stopBlockedReason(service)}
+              onClick={() => row.original.onStop(service)}
             >
               <Square className="size-3" />
               Stop
@@ -182,6 +185,7 @@ interface ServicesTableProps {
 
 export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableProps) {
   const [chips, setChips] = useState<ReadonlySet<FilterChip>>(new Set())
+  const requestStop = useRequestStop()
 
   // TanStack compares data by reference; unstable arrays here cause
   // infinite re-render loops (froze the tab when search landed).
@@ -196,8 +200,9 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
       project: service.project_id ? projectById.get(service.project_id) : undefined,
       dockerHint: hintFor.get(service.id),
       conflicted: conflicted.has(service.id),
+      onStop: requestStop,
     }))
-  }, [snapshot])
+  }, [snapshot, requestStop])
 
   // chips OR together; the text query ANDs on top
   const filtered = useMemo(

@@ -9,6 +9,18 @@ export function isSelf(service: Service): boolean {
   return service.process_name === 'portdoc'
 }
 
+// Stoppable only when we own a pid to signal, it isn't PortDoc, and it
+// isn't a Docker row (container stop is feature 14).
+export function canStop(service: Service): boolean {
+  return service.pid !== undefined && !isSelf(service) && service.exposure !== 'docker'
+}
+
+export function stopBlockedReason(service: Service): string {
+  if (isSelf(service)) return 'Protected - PortDoc will not stop itself'
+  if (service.exposure === 'docker') return 'Stop Docker containers from the Docker tab'
+  return 'No owner process to stop'
+}
+
 export function lanServices(snapshot: DevSnapshot): Service[] {
   return snapshot.services.filter((s) => s.exposure === 'lan')
 }
