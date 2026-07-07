@@ -89,8 +89,8 @@ export function ServiceRow({ service, conflicted, dockerHint }: ServiceRowProps)
           </Badge>
         )}
         {conflicted && (
-          <Badge variant="danger" dot>
-            conflict
+          <Badge dot title="Another process is also listening on this port">
+            shared port
           </Badge>
         )}
         {service.exposure === 'lan' && (

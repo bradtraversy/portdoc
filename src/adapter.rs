@@ -26,7 +26,7 @@ fn from_probe(output: ProbeOutput) -> DevSnapshot {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let mut services = services_from(output.sockets);
     let projects = group_projects(&mut services, home.as_deref(), fs_marker, project_labels);
-    let conflicts = crate::hint::detect_conflicts(&services, &projects);
+    let conflicts = crate::hint::detect_conflicts(&services);
     DevSnapshot {
         generated_at: now_ms(),
         services,

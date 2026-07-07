@@ -118,8 +118,8 @@ const columns = [
       return (
         <span className="flex items-center gap-1.5">
           {conflicted && (
-            <Badge variant="danger" dot>
-              conflict
+            <Badge dot title="Another process is also listening on this port">
+              shared port
             </Badge>
           )}
           {service.stale ? (
@@ -299,16 +299,11 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
                 className="group cursor-pointer border-b border-border last:border-b-0 hover:bg-surface-2"
                 onClick={() => inspect({ services: [row.original.service] })}
               >
-                {row.getVisibleCells().map((cell, i) => (
+                {row.getVisibleCells().map((cell) => (
                   <td
                     key={cell.id}
                     onClick={cell.column.id === 'actions' ? (e) => e.stopPropagation() : undefined}
-                    className={cn(
-                      'whitespace-nowrap px-3 py-[7px] align-middle',
-                      i === 0 &&
-                        row.original.conflicted &&
-                        'shadow-[inset_3px_0_0_var(--color-danger)]',
-                    )}
+                    className="whitespace-nowrap px-3 py-[7px] align-middle"
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>

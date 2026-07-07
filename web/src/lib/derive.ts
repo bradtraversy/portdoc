@@ -40,10 +40,8 @@ export function ungroupedServices(snapshot: DevSnapshot): Service[] {
   return snapshot.services.filter((s) => !s.project_id && s.exposure !== 'docker')
 }
 
-// Stale services already covered by a conflict callout don't get a second one
-export function staleUnconflicted(snapshot: DevSnapshot): Service[] {
-  const inConflict = conflictedIds(snapshot)
-  return snapshot.services.filter((s) => s.stale && !inConflict.has(s.id))
+export function staleServices(snapshot: DevSnapshot): Service[] {
+  return snapshot.services.filter((s) => s.stale)
 }
 
 export function servicesOnPort(snapshot: DevSnapshot, port: number): Service[] {

@@ -1,13 +1,7 @@
-import { Activity, Folder, TriangleAlert, Wifi } from 'lucide-react'
+import { Activity, Folder, Wifi } from 'lucide-react'
 import type { DevSnapshot } from '../lib/types'
 import { commonRoot, dockerServices, lanServices } from '../lib/derive'
-import type { TabId } from './TabBar'
 import { cn } from '../lib/cn'
-
-interface StatCardsProps {
-  snapshot: DevSnapshot
-  onNavigate: (tab: TabId) => void
-}
 
 interface Stat {
   label: string
@@ -17,7 +11,7 @@ interface Stat {
   sub?: React.ReactNode
 }
 
-export function StatCards({ snapshot, onNavigate }: StatCardsProps) {
+export function StatCards({ snapshot }: { snapshot: DevSnapshot }) {
   const lan = lanServices(snapshot)
   const root = commonRoot(snapshot)
   const hasDocker = dockerServices(snapshot).length > 0
@@ -36,21 +30,6 @@ export function StatCards({ snapshot, onNavigate }: StatCardsProps) {
       sub: root ? `under ${root}` : undefined,
     },
     {
-      label: 'Port conflicts',
-      icon: <TriangleAlert className="size-3.5 text-danger" />,
-      value: snapshot.conflicts.length,
-      valueClass: snapshot.conflicts.length > 0 ? 'text-danger' : undefined,
-      sub:
-        snapshot.conflicts.length > 0 ? (
-          <button
-            className="cursor-pointer text-accent hover:underline"
-            onClick={() => onNavigate('conflicts')}
-          >
-            resolve →
-          </button>
-        ) : undefined,
-    },
-    {
       label: 'LAN visible',
       icon: <Wifi className="size-3.5 text-warn" />,
       value: lan.length,
@@ -60,7 +39,7 @@ export function StatCards({ snapshot, onNavigate }: StatCardsProps) {
   ]
 
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       {stats.map((stat) => (
         <div key={stat.label} className="rounded-lg border border-border bg-surface px-4 py-3.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted">

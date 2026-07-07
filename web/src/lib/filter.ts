@@ -20,7 +20,7 @@ export const CHIPS: { id: FilterChip; label: string }[] = [
   { id: 'unknown', label: 'Unknown' },
   { id: 'lan', label: 'LAN visible' },
   { id: 'stale', label: 'Stale' },
-  { id: 'conflict', label: 'Conflict' },
+  { id: 'conflict', label: 'Shared port' },
 ]
 
 // Mirrors the Rust label vocabulary (src/label.rs), not shared with it.

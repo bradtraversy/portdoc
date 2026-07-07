@@ -1,21 +1,15 @@
 import type { DevSnapshot } from '../lib/types'
-import type { TabId } from './TabBar'
 import { StatCards } from './StatCards'
 import { Callouts } from './Callouts'
 import { ProjectGroups } from './ProjectGroups'
 import { PortLookup } from './PortLookup'
 
-interface DashboardViewProps {
-  snapshot: DevSnapshot
-  onNavigate: (tab: TabId) => void
-}
-
-export function DashboardView({ snapshot, onNavigate }: DashboardViewProps) {
+export function DashboardView({ snapshot }: { snapshot: DevSnapshot }) {
   return (
     <>
-      <StatCards snapshot={snapshot} onNavigate={onNavigate} />
+      <StatCards snapshot={snapshot} />
       <PortLookup snapshot={snapshot} />
-      <Callouts snapshot={snapshot} onNavigate={onNavigate} />
+      <Callouts snapshot={snapshot} />
       <ProjectGroups snapshot={snapshot} />
     </>
   )

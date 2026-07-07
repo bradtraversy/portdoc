@@ -9,13 +9,12 @@ import { TabBar, type TabId } from './components/TabBar'
 import { Placeholder } from './components/Placeholder'
 import { DashboardView } from './components/DashboardView'
 import { ServicesTable } from './components/ServicesTable'
-import { ConflictsView } from './components/ConflictsView'
 import { StopDialog } from './components/StopDialog'
 import { InspectDrawer } from './components/InspectDrawer'
 import { Button } from './components/ui/button'
 
 const placeholders: Record<
-  Exclude<TabId, 'dashboard' | 'services' | 'conflicts'>,
+  Exclude<TabId, 'dashboard' | 'services'>,
   { title: string; note: string }
 > = {
   projects: { title: 'Projects', note: 'Project-grouped view lands with real project detection (feature 7).' },
@@ -61,14 +60,11 @@ export default function App() {
           </div>
         )}
         {!snapshot && !error && <p className="text-sm text-faint">Loading snapshot</p>}
-        {snapshot && tab === 'dashboard' && (
-          <DashboardView snapshot={snapshot} onNavigate={setTab} />
-        )}
+        {snapshot && tab === 'dashboard' && <DashboardView snapshot={snapshot} />}
         {snapshot && tab === 'services' && (
           <ServicesTable snapshot={snapshot} query={query} onQueryChange={setQuery} />
         )}
-        {snapshot && tab === 'conflicts' && <ConflictsView snapshot={snapshot} />}
-        {snapshot && tab !== 'dashboard' && tab !== 'services' && tab !== 'conflicts' && (
+        {snapshot && tab !== 'dashboard' && tab !== 'services' && (
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
         )}
       </main>

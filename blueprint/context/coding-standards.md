@@ -113,8 +113,10 @@ of the switch; the skills and `ai-interaction.md` only point back here.
   hardcoded tool name.
 
 Stack binding: the Rust side uses `cargo test` with inline `#[cfg(test)]`
-modules; the frontend would use Vitest if it ever grows testable logic. Neither
-gate is on yet - no `test` command is declared in `AGENTS.md`.
+modules, and the gate is **on**: `cargo test` is declared in the Commands
+section of `AGENTS.md`. The frontend has no runner and would use Vitest if it
+ever grows testable logic; until then UI work rides on screenshot plus build
+evidence.
 
 ## Browser Verification
 

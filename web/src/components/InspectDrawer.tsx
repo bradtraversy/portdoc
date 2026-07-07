@@ -47,6 +47,12 @@ export function InspectDrawer({ target, snapshot, onClose }: InspectDrawerProps)
           </button>
         </div>
 
+        {services.length > 1 && (
+          <p className="border-b border-border px-4 py-2 text-xs text-muted">
+            Multiple processes hold this port (usually an IPv4/IPv6 split or a worker pool).
+            localhost may reach either one - check the bind address.
+          </p>
+        )}
         {services.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-faint">
             Nothing is listening on :{port}. The port is free.
@@ -86,8 +92,8 @@ function ServiceDetail({
         </Badge>
         {service.framework && <Badge>{service.framework}</Badge>}
         {conflicted && (
-          <Badge variant="danger" dot>
-            conflict
+          <Badge dot title="Another process is also listening on this port">
+            shared port
           </Badge>
         )}
         {service.stale && (
