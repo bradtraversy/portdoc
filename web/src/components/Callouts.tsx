@@ -1,14 +1,19 @@
+import { useState } from 'react'
 import { Clock } from 'lucide-react'
 import type { DevSnapshot } from '../lib/types'
 import { canStop, staleServices, stopBlockedReason } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
+import { useConfig } from '../lib/config'
 import { Button } from './ui/button'
 
 export function Callouts({ snapshot }: { snapshot: DevSnapshot }) {
   const requestStop = useRequestStop()
+  const { ignored } = useConfig()
   return (
     <>
-      {staleServices(snapshot).map((service) => (
+      {staleServices(snapshot)
+        .filter((service) => !ignored.has(service.id))
+        .map((service) => (
         <div
           key={service.id}
           className="flex items-center gap-3 rounded-lg border border-warn/30 bg-warn/10 px-3.5 py-2.5 text-sm"
@@ -20,9 +25,7 @@ export function Callouts({ snapshot }: { snapshot: DevSnapshot }) {
             {service.stale?.reason}
           </span>
           <span className="ml-auto flex flex-none gap-2">
-            <Button size="sm" disabled title="Ignore lands with feature 13">
-              Ignore
-            </Button>
+            <IgnoreButton serviceId={service.id} />
             <Button
               size="sm"
               disabled={!canStop(service)}
@@ -35,5 +38,23 @@ export function Callouts({ snapshot }: { snapshot: DevSnapshot }) {
         </div>
       ))}
     </>
+  )
+}
+
+function IgnoreButton({ serviceId }: { serviceId: string }) {
+  const { setIgnored } = useConfig()
+  const [error, setError] = useState(false)
+  const handle = async () => {
+    try {
+      await setIgnored(serviceId, true)
+    } catch {
+      setError(true)
+      setTimeout(() => setError(false), 1600)
+    }
+  }
+  return (
+    <Button size="sm" title="Hide this service from the dashboard" onClick={() => void handle()}>
+      {error ? 'Failed' : 'Ignore'}
+    </Button>
   )
 }

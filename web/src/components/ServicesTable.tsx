@@ -11,6 +11,7 @@ import type { DevSnapshot, DockerHint, Exposure, ProjectGroup, Service } from '.
 import { canStop, conflictedIds, displayName, isSelf, stopBlockedReason } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
 import { useInspect } from '../lib/inspect'
+import { useConfig } from '../lib/config'
 import { CHIPS, type FilterChip, matchesChip, matchesQuery } from '../lib/filter'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -21,6 +22,7 @@ interface Row {
   project?: ProjectGroup
   dockerHint?: DockerHint
   conflicted: boolean
+  ignored: boolean
   onStop: (service: Service) => void
 }
 
@@ -114,9 +116,10 @@ const columns = [
     id: 'status',
     header: 'Status',
     cell: ({ row }) => {
-      const { service, conflicted } = row.original
+      const { service, conflicted, ignored } = row.original
       return (
         <span className="flex items-center gap-1.5">
+          {ignored && <Badge title="Hidden from the dashboard">ignored</Badge>}
           {conflicted && (
             <Badge dot title="Another process is also listening on this port">
               shared port
@@ -190,8 +193,10 @@ interface ServicesTableProps {
 
 export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableProps) {
   const [chips, setChips] = useState<ReadonlySet<FilterChip>>(new Set())
+  const [showIgnored, setShowIgnored] = useState(false)
   const requestStop = useRequestStop()
   const inspect = useInspect()
+  const { ignored } = useConfig()
 
   // TanStack compares data by reference; unstable arrays here cause
   // infinite re-render loops (froze the tab when search landed).
@@ -206,20 +211,27 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
       project: service.project_id ? projectById.get(service.project_id) : undefined,
       dockerHint: hintFor.get(service.id),
       conflicted: conflicted.has(service.id),
+      ignored: ignored.has(service.id),
       onStop: requestStop,
     }))
-  }, [snapshot, requestStop])
+  }, [snapshot, requestStop, ignored])
+
+  const ignoredCount = useMemo(() => rows.filter((r) => r.ignored).length, [rows])
+  const visibleRows = useMemo(
+    () => (showIgnored ? rows : rows.filter((r) => !r.ignored)),
+    [rows, showIgnored],
+  )
 
   // chips OR together; the text query ANDs on top
   const filtered = useMemo(
     () =>
-      rows.filter(
+      visibleRows.filter(
         (row) =>
           matchesQuery(row.service, query, row.project?.name) &&
           (chips.size === 0 ||
             [...chips].some((c) => matchesChip(c, row.service, row.conflicted))),
       ),
-    [rows, query, chips],
+    [visibleRows, query, chips],
   )
   const table = useReactTable({ data: filtered, columns, getCoreRowModel: getCoreRowModel() })
 
@@ -262,6 +274,18 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
           <Button size="sm" variant="ghost" onClick={clearFilters}>
             Clear
           </Button>
+        )}
+        {ignoredCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowIgnored((v) => !v)}
+            aria-pressed={showIgnored}
+            className="ml-auto text-xs text-muted hover:text-text hover:underline"
+          >
+            {showIgnored
+              ? 'hide ignored'
+              : `${ignoredCount} ignored - show`}
+          </button>
         )}
       </div>
       <div className="overflow-x-auto rounded-lg border border-border bg-surface">
@@ -314,9 +338,9 @@ export function ServicesTable({ snapshot, query, onQueryChange }: ServicesTableP
         </table>
       </div>
       <p className="px-1 text-xs text-faint">
-        {filtered.length === rows.length
-          ? `${rows.length} services`
-          : `${filtered.length} of ${rows.length} services`}{' '}
+        {filtered.length === visibleRows.length
+          ? `${visibleRows.length} services`
+          : `${filtered.length} of ${visibleRows.length} services`}{' '}
         · click a row to inspect
       </p>
     </>

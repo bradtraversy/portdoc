@@ -1,6 +1,7 @@
 import { Box, GitBranch } from 'lucide-react'
 import type { DevSnapshot, Service } from '../lib/types'
 import { conflictedIds, dockerServices, ungroupedServices } from '../lib/derive'
+import { useConfig } from '../lib/config'
 import { Badge } from './ui/badge'
 import { ServiceRow } from './ServiceRow'
 
@@ -10,12 +11,13 @@ function uniqueFrameworks(services: Service[]): string[] {
 
 export function ProjectGroups({ snapshot }: { snapshot: DevSnapshot }) {
   const conflicted = conflictedIds(snapshot)
+  const { ignored } = useConfig()
   const byId = new Map(snapshot.services.map((s) => [s.id, s]))
   const hintFor = new Map(
     snapshot.docker_hints.filter((h) => h.service_id).map((h) => [h.service_id, h]),
   )
-  const docker = dockerServices(snapshot)
-  const ungrouped = ungroupedServices(snapshot)
+  const docker = dockerServices(snapshot).filter((s) => !ignored.has(s.id))
+  const ungrouped = ungroupedServices(snapshot).filter((s) => !ignored.has(s.id))
 
   const row = (service: Service) => (
     <ServiceRow
@@ -33,6 +35,8 @@ export function ProjectGroups({ snapshot }: { snapshot: DevSnapshot }) {
         const services = project.service_ids
           .map((id) => byId.get(id))
           .filter((s): s is Service => Boolean(s))
+          .filter((s) => !ignored.has(s.id))
+        if (services.length === 0) return null
         return (
           <section key={project.id} className="overflow-hidden rounded-lg border border-border bg-surface">
             <div className="flex items-center gap-2.5 border-b border-border px-4 py-2.5">

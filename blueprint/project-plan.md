@@ -27,15 +27,20 @@ recording, debugging, or jumping between projects.
 - CLI launcher with `portdoc`, `portdoc ui`, `--no-open`, `--port`, and `--json`.
 - Snapshot API that feeds both the browser UI and JSON output.
 - Dashboard grouped by project, with active services, ports, URLs, stale apps,
-  conflicts, LAN-visible services, and Docker hints.
+  LAN-visible services, and Docker hints.
 - Services table with process, PID, command, cwd, user, project, framework,
   exposure, started age when available, and quick actions.
 - Project root, package manager, git branch, and framework detection.
-- Conflict detection and stale-process heuristics for common dev workflows.
+- Shared-port detection and stale-process heuristics for common dev workflows.
+  (Decided 2026-07-07: bump-conflict inference was dropped - bind-time
+  EADDRINUSE fights are unobservable from a snapshot, so PortDoc reports only
+  the factual shared-port case as a neutral badge; port lookup is the
+  EADDRINUSE debugging path.)
 - Safe stop by service or port with confirmation, graceful stop first, forced stop
   only behind a second explicit confirmation, and copy kill command fallback.
 - Inspect drawer, search, filters, and tabs for Dashboard, Projects, Services,
-  Conflicts, Docker, and Advanced.
+  Docker, and Advanced. (The Conflicts tab was retired 2026-07-07 with the
+  conflicts rework.)
 - Release path with single-binary builds and OS-specific installer scripts.
 
 ## 4. Data - What are we storing?
@@ -43,8 +48,11 @@ recording, debugging, or jumping between projects.
 v0.1 stores no cloud data and sends no telemetry. The main data is an ephemeral
 local `DevSnapshot`: listening ports, process metadata, project grouping,
 framework labels, URLs, exposure labels, conflicts, stale hints, Docker hints, and
-inspection details. Later local-only config may store ignored services, UI
-preferences, and trusted project roots.
+inspection details. Local-only config (first needed by build item 13b, ignore
+service) stores ignored services and later UI preferences and trusted project
+roots. Decided 2026-07-07: it lives as JSON in the platform config directory
+via the `dirs` crate - `~/.config/portdoc/config.json` on Linux, Application
+Support on macOS, AppData on Windows.
 
 ## 5. Tech - What stack are we using?
 

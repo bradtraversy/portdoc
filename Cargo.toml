@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 axum = "0.8"
 clap = { version = "4", features = ["derive"] }
+dirs = "6"
 open = "5"
 rust-embed = "8"
 serde = { version = "1", features = ["derive"] }

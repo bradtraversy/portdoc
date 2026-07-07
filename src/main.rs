@@ -1,5 +1,6 @@
 mod action;
 mod adapter;
+mod config;
 mod hint;
 mod label;
 mod probe;
@@ -69,6 +70,8 @@ async fn main() {
     let app = Router::new()
         .route("/api/health", get(health))
         .route("/api/snapshot", get(api_snapshot))
+        .route("/api/config", get(api_config))
+        .route("/api/ignore", post(api_ignore))
         .route("/api/stop", post(api_stop))
         .route("/api/reveal", post(api_reveal))
         .fallback(static_handler);
@@ -164,6 +167,49 @@ fn snapshot_error(message: String) -> Response {
 
 fn api_error(status: StatusCode, message: String) -> Response {
     (status, Json(json!({ "error": message }))).into_response()
+}
+
+async fn api_config() -> Response {
+    match config::config_path() {
+        Some(path) => Json(config::load(&path)).into_response(),
+        None => config_dir_error(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct IgnoreRequest {
+    service_id: String,
+    ignored: bool,
+}
+
+/// Read-modify-write under a lock so concurrent toggles cannot drop each other.
+static CONFIG_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+async fn api_ignore(Json(request): Json<IgnoreRequest>) -> Response {
+    if request.service_id.is_empty() {
+        return api_error(StatusCode::BAD_REQUEST, "no service_id provided".into());
+    }
+    let Some(path) = config::config_path() else {
+        return config_dir_error();
+    };
+    let _guard = CONFIG_LOCK.lock().await;
+    let mut cfg = config::load(&path);
+    if cfg.set_ignored(&request.service_id, request.ignored)
+        && let Err(err) = config::save(&path, &cfg)
+    {
+        return api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("could not save config: {err}"),
+        );
+    }
+    Json(cfg).into_response()
+}
+
+fn config_dir_error() -> Response {
+    api_error(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "no config directory on this platform".into(),
+    )
 }
 
 #[derive(serde::Deserialize)]

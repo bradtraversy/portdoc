@@ -1,5 +1,7 @@
 import { Box, Folder, LayoutDashboard, Server, SlidersHorizontal } from 'lucide-react'
 import type { DevSnapshot } from '../lib/types'
+import { visibleServices } from '../lib/derive'
+import { useConfig } from '../lib/config'
 import { cn } from '../lib/cn'
 
 export type TabId = 'dashboard' | 'projects' | 'services' | 'docker' | 'advanced'
@@ -11,10 +13,12 @@ interface TabBarProps {
 }
 
 export function TabBar({ active, onSelect, snapshot }: TabBarProps) {
+  const { ignored } = useConfig()
+  const serviceCount = snapshot ? visibleServices(snapshot, ignored).length : undefined
   const tabs = [
     { id: 'dashboard' as const, label: 'Dashboard', Icon: LayoutDashboard },
     { id: 'projects' as const, label: 'Projects', Icon: Folder, count: snapshot?.projects.length },
-    { id: 'services' as const, label: 'Services', Icon: Server, count: snapshot?.services.length },
+    { id: 'services' as const, label: 'Services', Icon: Server, count: serviceCount },
     { id: 'docker' as const, label: 'Docker', Icon: Box, count: snapshot?.docker_hints.length },
     { id: 'advanced' as const, label: 'Advanced', Icon: SlidersHorizontal },
   ]

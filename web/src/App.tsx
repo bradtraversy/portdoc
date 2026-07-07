@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useSnapshot } from './lib/useSnapshot'
 import { StopContext } from './lib/stop'
+import { ConfigContext, useConfigState } from './lib/config'
 import { InspectContext, type InspectTarget } from './lib/inspect'
 import type { Service } from './lib/types'
 import { TopBar } from './components/TopBar'
@@ -28,6 +29,7 @@ export default function App() {
   const [stopTarget, setStopTarget] = useState<Service | null>(null)
   const [inspect, setInspect] = useState<InspectTarget | null>(null)
   const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
+  const configState = useConfigState()
 
   // typing anywhere jumps to the Services tab with the query applied
   const searchFrom = (q: string) => {
@@ -38,6 +40,7 @@ export default function App() {
   return (
     <StopContext.Provider value={setStopTarget}>
     <InspectContext.Provider value={setInspect}>
+    <ConfigContext.Provider value={configState}>
     <div className="min-h-screen">
       <TopBar
         fetchedAt={fetchedAt}
@@ -82,6 +85,7 @@ export default function App() {
         />
       )}
     </div>
+    </ConfigContext.Provider>
     </InspectContext.Provider>
     </StopContext.Provider>
   )

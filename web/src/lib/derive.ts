@@ -44,6 +44,11 @@ export function staleServices(snapshot: DevSnapshot): Service[] {
   return snapshot.services.filter((s) => s.stale)
 }
 
+// Hiding ignored services is purely a UI concern; the snapshot stays complete.
+export function visibleServices(snapshot: DevSnapshot, ignored: ReadonlySet<string>): Service[] {
+  return snapshot.services.filter((s) => !ignored.has(s.id))
+}
+
 export function servicesOnPort(snapshot: DevSnapshot, port: number): Service[] {
   return snapshot.services.filter((s) => s.port === port)
 }

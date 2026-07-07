@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Copy, ExternalLink, FolderOpen, Square, X } from 'lucide-react'
+import { Copy, ExternalLink, EyeOff, FolderOpen, Square, X } from 'lucide-react'
 import type { DevSnapshot, ProjectGroup, Service } from '../lib/types'
 import type { InspectTarget } from '../lib/inspect'
 import { canStop, conflictedIds, displayName, stopBlockedReason } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
+import { useConfig } from '../lib/config'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
@@ -83,6 +84,17 @@ function ServiceDetail({
 }) {
   const requestStop = useRequestStop()
   const stoppable = canStop(service)
+  const { ignored, setIgnored } = useConfig()
+  const isIgnored = ignored.has(service.id)
+  const [ignoreError, setIgnoreError] = useState(false)
+  const toggleIgnored = async () => {
+    try {
+      await setIgnored(service.id, !isIgnored)
+    } catch {
+      setIgnoreError(true)
+      setTimeout(() => setIgnoreError(false), 1600)
+    }
+  }
 
   return (
     <div className="border-b border-border px-4 py-3.5 last:border-b-0">
@@ -91,6 +103,7 @@ function ServiceDetail({
           {service.exposure === 'lan' ? 'LAN' : service.exposure}
         </Badge>
         {service.framework && <Badge>{service.framework}</Badge>}
+        {isIgnored && <Badge title="Hidden from the dashboard">ignored</Badge>}
         {conflicted && (
           <Badge dot title="Another process is also listening on this port">
             shared port
@@ -139,6 +152,15 @@ function ServiceDetail({
           copyText={service.pid !== undefined ? `kill ${service.pid}` : undefined}
         />
         <RevealButton path={project?.root ?? service.cwd} />
+        <Button
+          size="sm"
+          variant="ghost"
+          title={isIgnored ? 'Show this service again' : 'Hide this service from the dashboard'}
+          onClick={() => void toggleIgnored()}
+        >
+          <EyeOff className="size-3" />
+          {ignoreError ? 'Failed' : isIgnored ? 'Unignore' : 'Ignore'}
+        </Button>
         <Button
           size="sm"
           variant="ghost"

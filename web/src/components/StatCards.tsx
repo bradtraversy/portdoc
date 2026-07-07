@@ -1,6 +1,7 @@
 import { Activity, Folder, Wifi } from 'lucide-react'
 import type { DevSnapshot } from '../lib/types'
-import { commonRoot, dockerServices, lanServices } from '../lib/derive'
+import { commonRoot, visibleServices } from '../lib/derive'
+import { useConfig } from '../lib/config'
 import { cn } from '../lib/cn'
 
 interface Stat {
@@ -12,21 +13,24 @@ interface Stat {
 }
 
 export function StatCards({ snapshot }: { snapshot: DevSnapshot }) {
-  const lan = lanServices(snapshot)
+  const { ignored } = useConfig()
+  const visible = visibleServices(snapshot, ignored)
+  const lan = visible.filter((s) => s.exposure === 'lan')
   const root = commonRoot(snapshot)
-  const hasDocker = dockerServices(snapshot).length > 0
+  const hasDocker = visible.some((s) => s.exposure === 'docker')
+  const activeProjects = new Set(visible.map((s) => s.project_id).filter(Boolean)).size
 
   const stats: Stat[] = [
     {
       label: 'Running services',
       icon: <Activity className="size-3.5 text-ok" />,
-      value: snapshot.services.length,
-      sub: `across ${snapshot.projects.length} projects${hasDocker ? ' + Docker' : ''}`,
+      value: visible.length,
+      sub: `across ${activeProjects} projects${hasDocker ? ' + Docker' : ''}`,
     },
     {
       label: 'Projects active',
       icon: <Folder className="size-3.5" />,
-      value: snapshot.projects.length,
+      value: activeProjects,
       sub: root ? `under ${root}` : undefined,
     },
     {
