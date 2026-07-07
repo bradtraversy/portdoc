@@ -7,10 +7,10 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::label::{ProjectLabels, detect_framework, http_looking, project_labels};
+use crate::label::{ProjectLabels, detect_framework, http_looking, is_dev_server, project_labels};
 use crate::probe::{ListeningSocket, ProbeError, ProbeOutput, ProcessInfo, platform_probe};
 use crate::project::{Marker, detect_root, fs_marker};
-use crate::snapshot::{DevSnapshot, Exposure, ProjectGroup, Service};
+use crate::snapshot::{DevSnapshot, Exposure, ProjectGroup, Service, StaleHint};
 
 /// Probe this machine and adapt the result. A platform without a probe
 /// yields an empty snapshot, not an error.
@@ -26,11 +26,12 @@ fn from_probe(output: ProbeOutput) -> DevSnapshot {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let mut services = services_from(output.sockets);
     let projects = group_projects(&mut services, home.as_deref(), fs_marker, project_labels);
+    let conflicts = crate::hint::detect_conflicts(&services, &projects);
     DevSnapshot {
         generated_at: now_ms(),
         services,
         projects,
-        conflicts: Vec::new(),
+        conflicts,
         docker_hints: Vec::new(),
     }
 }
@@ -285,6 +286,8 @@ fn service_from(merged: MergedSocket, id: String) -> Service {
     let framework = detect_framework(name, process.as_ref().and_then(|p| p.command.as_deref()));
     let url = http_looking(merged.port, name, framework.as_deref())
         .then(|| url(&merged.addrs, merged.port));
+    let started_secs = process.as_ref().and_then(|p| p.started_secs_ago);
+    let stale = stale_hint(framework.as_deref(), started_secs);
     Service {
         id,
         port: merged.port,
@@ -299,12 +302,21 @@ fn service_from(merged: MergedSocket, id: String) -> Service {
         framework,
         exposure,
         url,
-        started_age: process
-            .as_ref()
-            .and_then(|p| p.started_secs_ago)
-            .map(humanize_age),
-        stale: None,
+        started_age: started_secs.map(humanize_age),
+        stale,
     }
+}
+
+const STALE_AFTER_SECS: u64 = 3 * 24 * 60 * 60;
+
+/// Only known dev servers get accused, and only with the provable fact
+/// (age) - never traffic claims we cannot observe.
+fn stale_hint(framework: Option<&str>, started_secs_ago: Option<u64>) -> Option<StaleHint> {
+    let framework = framework.filter(|f| is_dev_server(f))?;
+    let secs = started_secs_ago.filter(|&s| s >= STALE_AFTER_SECS)?;
+    Some(StaleHint {
+        reason: format!("{framework} dev server running for {}", humanize_age(secs)),
+    })
 }
 
 #[cfg(test)]
@@ -691,6 +703,29 @@ mod tests {
         )]);
         assert_eq!(services[0].url.as_deref(), Some("http://localhost:3000"));
         assert_eq!(services[0].started_age.as_deref(), Some("4m"));
+    }
+
+    #[test]
+    fn stale_accuses_only_old_dev_servers() {
+        const DAY: u64 = 86_400;
+        let stale = stale_hint(Some("Astro"), Some(3 * DAY)).expect("3d astro is stale");
+        assert_eq!(stale.reason, "Astro dev server running for 3d");
+        assert!(
+            stale_hint(Some("Vite"), Some(2 * DAY)).is_none(),
+            "under threshold"
+        );
+        assert!(
+            stale_hint(Some("Postgres"), Some(8 * DAY)).is_none(),
+            "databases run long legitimately"
+        );
+        assert!(
+            stale_hint(None, Some(30 * DAY)).is_none(),
+            "unlabeled processes are never accused"
+        );
+        assert!(
+            stale_hint(Some("Next.js"), None).is_none(),
+            "unknown age is not stale"
+        );
     }
 
     #[test]

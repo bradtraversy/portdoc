@@ -37,7 +37,7 @@ In build-plan order. The headline feature is the **project-grouped dashboard**
 11. **Search and filters** - filters for framework, runtime, API, database, Docker, unknown, LAN visible, stale, conflict, plus text search.
 12. **Safe stop action** - stop a service or port with confirmation: show PID/command/cwd first, graceful stop, verify port release, force kill only behind a second explicit confirmation.
 13. **Inspect drawer and quick actions** - service details, open/copy URL, reveal project folder, copy kill command, ignore service, advanced process details.
-14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics, kept out of the main dashboard.
+14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics (well-known-port hints like ":22 - usually SSH" plus why the owner is unreadable), desktop app labels (VS Code, Discord) extending the feature 8 vocabulary, kept out of the main dashboard.
 15. **Release and install path** - Linux/macOS/Windows release builds, checksums, `install.sh`, `install.ps1`, README docs, toward one-command installs from `portdoc.dev`.
 
 ## Data model

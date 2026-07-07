@@ -6,11 +6,14 @@ import { TabBar, type TabId } from './components/TabBar'
 import { Placeholder } from './components/Placeholder'
 import { DashboardView } from './components/DashboardView'
 import { ServicesTable } from './components/ServicesTable'
+import { ConflictsView } from './components/ConflictsView'
 import { Button } from './components/ui/button'
 
-const placeholders: Record<Exclude<TabId, 'dashboard' | 'services'>, { title: string; note: string }> = {
+const placeholders: Record<
+  Exclude<TabId, 'dashboard' | 'services' | 'conflicts'>,
+  { title: string; note: string }
+> = {
   projects: { title: 'Projects', note: 'Project-grouped view lands with real project detection (feature 7).' },
-  conflicts: { title: 'Conflicts', note: 'Conflict details and actions land with feature 10.' },
   docker: { title: 'Docker', note: 'Container and Compose view lands with feature 14.' },
   advanced: { title: 'Advanced', note: 'Raw sockets, JSON export, and diagnostics land with feature 14.' },
 }
@@ -40,7 +43,8 @@ export default function App() {
           <DashboardView snapshot={snapshot} onNavigate={setTab} />
         )}
         {snapshot && tab === 'services' && <ServicesTable snapshot={snapshot} />}
-        {snapshot && tab !== 'dashboard' && tab !== 'services' && (
+        {snapshot && tab === 'conflicts' && <ConflictsView snapshot={snapshot} />}
+        {snapshot && tab !== 'dashboard' && tab !== 'services' && tab !== 'conflicts' && (
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
         )}
       </main>

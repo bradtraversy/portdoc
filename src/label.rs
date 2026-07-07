@@ -61,6 +61,15 @@ const NON_HTTP_PORTS: [u16; 18] = [
 const NON_HTTP_FRAMEWORKS: [&str; 2] = ["Postgres", "Redis"];
 const NON_HTTP_PROCESSES: [&str; 3] = ["sshd", "dnsmasq", "systemd-resolved"];
 
+/// Frameworks that are dev servers - the only things the stale heuristic
+/// will accuse. Databases, editors, and unlabeled processes run long
+/// legitimately.
+const DEV_SERVERS: [&str; 6] = ["Next.js", "Vite", "Astro", "Remix", "Nuxt", "React scripts"];
+
+pub fn is_dev_server(framework: &str) -> bool {
+    DEV_SERVERS.contains(&framework)
+}
+
 pub fn http_looking(port: u16, process_name: Option<&str>, framework: Option<&str>) -> bool {
     if NON_HTTP_PORTS.contains(&port) {
         return false;
