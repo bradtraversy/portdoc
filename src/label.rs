@@ -50,11 +50,68 @@ pub fn detect_framework(name: Option<&str>, command: Option<&str>) -> Option<Str
         return Some("Prisma Studio".into());
     }
 
-    FRAMEWORKS
+    if let Some(label) = table_match(&FRAMEWORKS, &tokens) {
+        return Some(label);
+    }
+    if let Some(extension) = vscode_extension(command) {
+        return Some(format!("VS Code ({extension})"));
+    }
+    table_match(&DESKTOP_APPS, &tokens)
+}
+
+fn table_match(table: &[(&str, &[&str])], tokens: &[String]) -> Option<String> {
+    table
         .iter()
-        .chain(DESKTOP_APPS.iter())
         .find(|(_, ids)| ids.iter().any(|id| tokens.iter().any(|t| t == id)))
         .map(|(label, _)| (*label).into())
+}
+
+const EXTENSION_MARKERS: [&str; 2] = [".vscode/extensions/", ".vscode-insiders/extensions/"];
+
+/// ".vscode/extensions/ms-python.vscode-pylance-2026.2.1/..." -> "Pylance".
+/// The extension path is a signal on its own: extension servers often run
+/// under plain `node`, not the `code` binary.
+fn vscode_extension(command: Option<&str>) -> Option<String> {
+    let command = command?;
+    let rest = EXTENSION_MARKERS
+        .iter()
+        .find_map(|marker| command.find(marker).map(|i| &command[i + marker.len()..]))?;
+    let dir = rest.split(['/', ' ']).next()?;
+    let id = strip_version(dir).to_lowercase();
+    let name = id.split_once('.').map(|(_, name)| name).unwrap_or(&id);
+    let name = name
+        .strip_prefix("vscode-")
+        .or_else(|| name.strip_suffix("-vscode"))
+        .unwrap_or(name);
+    (!name.is_empty()).then(|| humanize(name))
+}
+
+/// "vscode-pylance-2026.2.1" -> "vscode-pylance"
+fn strip_version(dir: &str) -> &str {
+    match dir.rfind('-') {
+        Some(i)
+            if !dir[i + 1..].is_empty()
+                && dir[i + 1..].chars().all(|c| c.is_ascii_digit() || c == '.') =>
+        {
+            &dir[..i]
+        }
+        _ => dir,
+    }
+}
+
+/// "rust-analyzer" -> "Rust Analyzer"
+fn humanize(name: &str) -> String {
+    name.split('-')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Path basename, lowercased, with node-ish extensions stripped
@@ -222,7 +279,7 @@ mod tests {
         let cases = [
             (
                 Some("code"),
-                Some("/snap/code/247/usr/share/code/code /home/brad/.vscode/extensions/ms-python.vscode-pylance-2026.2.1/dist/server.bundle.js --node-ipc"),
+                Some("/snap/code/247/usr/share/code/code --type=utility --utility-sub-type=node.mojom.NodeService"),
                 "VS Code",
             ),
             (
@@ -255,6 +312,59 @@ mod tests {
             Some("Vite"),
             "a framework token wins even when an app token is present"
         );
+    }
+
+    #[test]
+    fn vscode_extension_paths_name_the_extension() {
+        let cases = [
+            (
+                Some("code"),
+                Some("/snap/code/247/usr/share/code/code /home/brad/.vscode/extensions/ms-python.vscode-pylance-2026.2.1/dist/server.bundle.js --node-ipc"),
+                "VS Code (Pylance)",
+            ),
+            (
+                // extension servers often run under plain node
+                Some("node"),
+                Some("/usr/bin/node /home/brad/.vscode/extensions/rust-lang.rust-analyzer-0.4.2000/server/main.js"),
+                "VS Code (Rust Analyzer)",
+            ),
+            (
+                Some("node"),
+                Some("node /home/brad/.vscode/extensions/esbenp.prettier-vscode-11.0.0/dist/server.js"),
+                "VS Code (Prettier)",
+            ),
+            (
+                Some("node"),
+                Some("node /home/brad/.vscode-insiders/extensions/github.copilot-1.250.0/dist/agent.js"),
+                "VS Code (Copilot)",
+            ),
+        ];
+        for (name, command, expected) in cases {
+            assert_eq!(
+                detect_framework(name, command).as_deref(),
+                Some(expected),
+                "for: {command:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn extension_refinement_never_beats_a_framework_match() {
+        assert_eq!(
+            detect_framework(
+                Some("node"),
+                Some("node /home/brad/.vscode/extensions/some.ext-1.0.0/node_modules/.bin/vite"),
+            )
+            .as_deref(),
+            Some("Vite")
+        );
+    }
+
+    #[test]
+    fn version_stripping_handles_odd_directory_names() {
+        assert_eq!(strip_version("vscode-pylance-2026.2.1"), "vscode-pylance");
+        assert_eq!(strip_version("rust-analyzer"), "rust-analyzer");
+        assert_eq!(strip_version("ext-"), "ext-", "trailing hyphen survives");
     }
 
     #[test]
