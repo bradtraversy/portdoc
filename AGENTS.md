@@ -84,6 +84,7 @@ Backend (repo root):
 - The server embeds `web/dist`, so run `npm run build` in `web/` first when the served UI matters
 - Lint: `cargo clippy`
 - Format: `cargo fmt`
+- Test: `cargo test` (inline `#[cfg(test)]` modules; watch: `cargo watch -x test` if `cargo-watch` is installed)
 
 Frontend (run from `web/`, npm with `package-lock.json`):
 
@@ -92,6 +93,7 @@ Frontend (run from `web/`, npm with `package-lock.json`):
 - Lint: `npm run lint` (oxlint)
 - Preview build: `npm run preview`
 
-No test command is configured yet, so there is no test gate. Testing is opt-in:
-run `/tests` or `$tests` to add a runner and update this section with the real
-test commands.
+The `cargo test` command above is the test gate: build steps that add
+logic-bearing Rust code must ship a passing test in the same diff (see the
+Testing section of `blueprint/context/coding-standards.md`). The frontend has
+no test runner; UI verification stays screenshot plus build evidence.
