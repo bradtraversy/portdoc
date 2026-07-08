@@ -86,6 +86,10 @@ mod tests {
     fn runs_in_the_given_directory() {
         let out =
             run("pwd", &[], Some(Path::new("/tmp")), Duration::from_secs(5)).expect("pwd runs");
-        assert_eq!(out.trim(), "/tmp");
+        // canonicalize both sides: /tmp is a symlink to /private/tmp on macOS
+        assert_eq!(
+            std::fs::canonicalize(out.trim()).expect("canonicalize pwd output"),
+            std::fs::canonicalize("/tmp").expect("canonicalize /tmp")
+        );
     }
 }

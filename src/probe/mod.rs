@@ -6,12 +6,17 @@
 
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "macos")]
+mod macos;
 
 use std::net::IpAddr;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Protocol {
+    // Only probe implementations construct this; platforms without one
+    // would otherwise flag it dead.
+    #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
     Tcp,
 }
 
@@ -49,6 +54,7 @@ pub struct ProbeOutput {
 #[derive(Debug, thiserror::Error)]
 pub enum ProbeError {
     #[error("failed to read {path}: {source}")]
+    #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
     Io {
         path: String,
         #[source]
@@ -71,7 +77,12 @@ pub fn platform_probe() -> Option<Box<dyn Probe>> {
     Some(Box::new(linux::LinuxProbe))
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+pub fn platform_probe() -> Option<Box<dyn Probe>> {
+    Some(Box::new(macos::MacProbe))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub fn platform_probe() -> Option<Box<dyn Probe>> {
     None
 }
@@ -92,6 +103,22 @@ mod tests {
     fn linux_probe_runs() {
         let probe = platform_probe().expect("linux should have a probe");
         let output = probe.probe().expect("probe should succeed on linux");
+        // sorted by port, per the probe's stability guarantee
+        assert!(output.sockets.is_sorted_by_key(|s| s.port));
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn macos_gets_a_probe() {
+        let probe = platform_probe().expect("macos should have a probe");
+        assert_eq!(probe.name(), "macos-netstat");
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn macos_probe_runs() {
+        let probe = platform_probe().expect("macos should have a probe");
+        let output = probe.probe().expect("probe should succeed on macos");
         // sorted by port, per the probe's stability guarantee
         assert!(output.sockets.is_sorted_by_key(|s| s.port));
     }

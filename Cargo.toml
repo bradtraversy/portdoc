@@ -20,3 +20,7 @@ procfs = "0.18.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+netstat2 = "0.11.2"
+sysinfo = "0.39.5"
