@@ -27,12 +27,13 @@ fn from_probe(output: ProbeOutput) -> DevSnapshot {
     let mut services = services_from(output.sockets);
     let projects = group_projects(&mut services, home.as_deref(), fs_marker, project_labels);
     let conflicts = crate::hint::detect_conflicts(&services);
+    let docker_hints = crate::docker::hints(crate::docker::running_containers(), &services);
     DevSnapshot {
         generated_at: now_ms(),
         services,
         projects,
         conflicts,
-        docker_hints: Vec::new(),
+        docker_hints,
     }
 }
 

@@ -136,7 +136,14 @@ mod tests {
                 Some("Vite"),
                 Some("node .bin/vite"),
             ),
-            svc("vite-default", 5173, Some(3), Some("node"), Some("Vite"), None),
+            svc(
+                "vite-default",
+                5173,
+                Some(3),
+                Some("node"),
+                Some("Vite"),
+                None,
+            ),
         ];
         assert!(detect_conflicts(&services).is_empty());
     }

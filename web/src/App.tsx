@@ -9,17 +9,17 @@ import { TopBar } from './components/TopBar'
 import { TabBar, type TabId } from './components/TabBar'
 import { Placeholder } from './components/Placeholder'
 import { DashboardView } from './components/DashboardView'
+import { DockerView } from './components/DockerView'
 import { ServicesTable } from './components/ServicesTable'
 import { StopDialog } from './components/StopDialog'
 import { InspectDrawer } from './components/InspectDrawer'
 import { Button } from './components/ui/button'
 
 const placeholders: Record<
-  Exclude<TabId, 'dashboard' | 'services'>,
+  Exclude<TabId, 'dashboard' | 'services' | 'docker'>,
   { title: string; note: string }
 > = {
   projects: { title: 'Projects', note: 'Project-grouped view lands with real project detection (feature 7).' },
-  docker: { title: 'Docker', note: 'Container and Compose view lands with feature 14.' },
   advanced: { title: 'Advanced', note: 'Raw sockets, JSON export, and diagnostics land with feature 14.' },
 }
 
@@ -67,7 +67,8 @@ export default function App() {
         {snapshot && tab === 'services' && (
           <ServicesTable snapshot={snapshot} query={query} onQueryChange={setQuery} />
         )}
-        {snapshot && tab !== 'dashboard' && tab !== 'services' && (
+        {snapshot && tab === 'docker' && <DockerView snapshot={snapshot} />}
+        {snapshot && tab !== 'dashboard' && tab !== 'services' && tab !== 'docker' && (
           <Placeholder title={placeholders[tab].title} note={placeholders[tab].note} />
         )}
       </main>

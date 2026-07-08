@@ -279,18 +279,38 @@ mod tests {
         let cases = [
             (
                 Some("code"),
-                Some("/snap/code/247/usr/share/code/code --type=utility --utility-sub-type=node.mojom.NodeService"),
+                Some(
+                    "/snap/code/247/usr/share/code/code --type=utility --utility-sub-type=node.mojom.NodeService",
+                ),
                 "VS Code",
             ),
             (
                 Some("exe"),
-                Some("/proc/self/exe --type=renderer --user-data-dir=/home/brad/.config/discord --app-path=/home/brad/.config/discord/app-1.0.143/resources/app.asar"),
+                Some(
+                    "/proc/self/exe --type=renderer --user-data-dir=/home/brad/.config/discord --app-path=/home/brad/.config/discord/app-1.0.143/resources/app.asar",
+                ),
                 "Discord",
             ),
-            (Some("chrome"), Some("/opt/google/chrome/chrome --type=utility"), "Chrome"),
-            (Some("firefox"), Some("/usr/lib/firefox/firefox -new-instance"), "Firefox"),
-            (Some("slack"), Some("/usr/lib/slack/slack --type=renderer"), "Slack"),
-            (None, Some("/usr/bin/electron /home/brad/app/main.js"), "Electron"),
+            (
+                Some("chrome"),
+                Some("/opt/google/chrome/chrome --type=utility"),
+                "Chrome",
+            ),
+            (
+                Some("firefox"),
+                Some("/usr/lib/firefox/firefox -new-instance"),
+                "Firefox",
+            ),
+            (
+                Some("slack"),
+                Some("/usr/lib/slack/slack --type=renderer"),
+                "Slack",
+            ),
+            (
+                None,
+                Some("/usr/bin/electron /home/brad/app/main.js"),
+                "Electron",
+            ),
         ];
         for (name, command, expected) in cases {
             assert_eq!(
@@ -319,23 +339,31 @@ mod tests {
         let cases = [
             (
                 Some("code"),
-                Some("/snap/code/247/usr/share/code/code /home/brad/.vscode/extensions/ms-python.vscode-pylance-2026.2.1/dist/server.bundle.js --node-ipc"),
+                Some(
+                    "/snap/code/247/usr/share/code/code /home/brad/.vscode/extensions/ms-python.vscode-pylance-2026.2.1/dist/server.bundle.js --node-ipc",
+                ),
                 "VS Code (Pylance)",
             ),
             (
                 // extension servers often run under plain node
                 Some("node"),
-                Some("/usr/bin/node /home/brad/.vscode/extensions/rust-lang.rust-analyzer-0.4.2000/server/main.js"),
+                Some(
+                    "/usr/bin/node /home/brad/.vscode/extensions/rust-lang.rust-analyzer-0.4.2000/server/main.js",
+                ),
                 "VS Code (Rust Analyzer)",
             ),
             (
                 Some("node"),
-                Some("node /home/brad/.vscode/extensions/esbenp.prettier-vscode-11.0.0/dist/server.js"),
+                Some(
+                    "node /home/brad/.vscode/extensions/esbenp.prettier-vscode-11.0.0/dist/server.js",
+                ),
                 "VS Code (Prettier)",
             ),
             (
                 Some("node"),
-                Some("node /home/brad/.vscode-insiders/extensions/github.copilot-1.250.0/dist/agent.js"),
+                Some(
+                    "node /home/brad/.vscode-insiders/extensions/github.copilot-1.250.0/dist/agent.js",
+                ),
                 "VS Code (Copilot)",
             ),
         ];
@@ -370,7 +398,10 @@ mod tests {
     #[test]
     fn desktop_apps_match_basenames_not_substrings() {
         assert_eq!(detect("node /opt/discord-clone/server.js"), None);
-        assert_eq!(detect("node /home/brad/chrome-extension-api/index.js"), None);
+        assert_eq!(
+            detect("node /home/brad/chrome-extension-api/index.js"),
+            None
+        );
         assert_eq!(detect("ssh -L 8642:localhost:8642 trav-ai"), None);
     }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Copy, ExternalLink, EyeOff, FolderOpen, Square, X } from 'lucide-react'
-import type { DevSnapshot, ProjectGroup, Service } from '../lib/types'
+import type { DevSnapshot, DockerHint, ProjectGroup, Service } from '../lib/types'
 import type { InspectTarget } from '../lib/inspect'
 import { canStop, conflictedIds, displayName, stopBlockedReason } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
@@ -65,6 +65,7 @@ export function InspectDrawer({ target, snapshot, onClose }: InspectDrawerProps)
               service={service}
               project={service.project_id ? projectById.get(service.project_id) : undefined}
               conflicted={conflicted.has(service.id)}
+              dockerHint={dockerHintFor(service, snapshot.docker_hints)}
             />
           ))
         )}
@@ -73,14 +74,24 @@ export function InspectDrawer({ target, snapshot, onClose }: InspectDrawerProps)
   )
 }
 
+// Joined hints match by service id; a port fallback still names the
+// container when the join could not resolve an owner.
+function dockerHintFor(service: Service, hints: DockerHint[]): DockerHint | undefined {
+  return (
+    hints.find((h) => h.service_id === service.id) ?? hints.find((h) => h.port === service.port)
+  )
+}
+
 function ServiceDetail({
   service,
   project,
   conflicted,
+  dockerHint,
 }: {
   service: Service
   project?: ProjectGroup
   conflicted: boolean
+  dockerHint?: DockerHint
 }) {
   const requestStop = useRequestStop()
   const stoppable = canStop(service)
@@ -124,6 +135,9 @@ function ServiceDetail({
         <Field label="Path" value={service.cwd} />
         <Field label="User" value={service.user} />
         <Field label="Project" value={project ? `${project.name}  ${project.root}` : undefined} />
+        <Field label="Container" value={dockerHint?.container} />
+        <Field label="Image" value={dockerHint?.image} />
+        <Field label="Compose" value={dockerHint?.compose_project} />
         <Field label="URL" value={service.url} />
         <Field label="Age" value={service.started_age} />
         <Field label="Stale" value={service.stale?.reason} plain />

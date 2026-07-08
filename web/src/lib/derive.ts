@@ -17,14 +17,14 @@ export function displayName(service: Service): string {
 }
 
 // Stoppable only when we own a pid to signal, it isn't PortDoc, and it
-// isn't a Docker row (container stop is feature 14).
+// isn't a Docker row (killing the proxy would not stop the container).
 export function canStop(service: Service): boolean {
   return service.pid !== undefined && !isSelf(service) && service.exposure !== 'docker'
 }
 
 export function stopBlockedReason(service: Service): string {
   if (isSelf(service)) return 'Protected - PortDoc will not stop itself'
-  if (service.exposure === 'docker') return 'Stop Docker containers from the Docker tab'
+  if (service.exposure === 'docker') return 'Use docker stop - killing the proxy does not stop the container'
   return 'No owner process to stop'
 }
 

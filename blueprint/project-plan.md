@@ -62,6 +62,9 @@ for later macOS and Windows support. The frontend is React, TypeScript, and Vite
 in `web/`, with Tailwind CSS, shadcn/ui style components, TanStack Table, and
 Lucide planned for the control panel UI. Static assets are embedded with
 `rust-embed` (decided at build item 2; debug builds read `web/dist` from disk).
+Docker and Compose hints (build item 14b) shell out to the docker CLI
+(`docker ps`), decided 2026-07-08: no socket client or extra crate, and a
+missing or unreachable Docker degrades to empty hints, never an error.
 
 ## 6. Monetize - How will this make money?
 

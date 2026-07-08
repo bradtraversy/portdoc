@@ -66,7 +66,10 @@ mod tests {
 
     #[test]
     fn missing_file_loads_default() {
-        assert_eq!(load(Path::new("/nonexistent/config.json")), Config::default());
+        assert_eq!(
+            load(Path::new("/nonexistent/config.json")),
+            Config::default()
+        );
     }
 
     #[test]
@@ -113,7 +116,10 @@ mod tests {
         assert_eq!(config.ignored_services, vec!["a"]);
 
         assert!(config.set_ignored("a", false));
-        assert!(!config.set_ignored("a", false), "second unignore is a no-op");
+        assert!(
+            !config.set_ignored("a", false),
+            "second unignore is a no-op"
+        );
         assert!(config.ignored_services.is_empty());
     }
 }

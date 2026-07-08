@@ -38,7 +38,7 @@ In build-plan order. The headline feature is the **project-grouped dashboard**
 12. **Safe stop action** - stop a service or port with confirmation: show PID/command/cwd first, graceful stop, verify port release, force kill only behind a second explicit confirmation.
 13a. **Inspect drawer and port lookup** - a dashboard "look up a port" field opens an inspect drawer for that exact port (one listener, nothing, or multiple listeners); clicking a row opens the same drawer. Full details plus non-persistent quick actions (open/copy URL, copy kill command, reveal folder, stop). No config storage.
 13b. **Ignore service** - hide a service, persisted in local config. Config decided 2026-07-07: JSON at the platform config dir via the `dirs` crate.
-14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics (well-known-port hints like ":22 - usually SSH" plus why the owner is unreadable), desktop app labels (VS Code, Discord) extending the feature 8 vocabulary, kept out of the main dashboard.
+14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics (well-known-port hints like ":22 - usually SSH" plus why the owner is unreadable), desktop app labels (VS Code, Discord) extending the feature 8 vocabulary, kept out of the main dashboard. Docker mechanism decided 2026-07-08: shell out to the docker CLI (`docker ps --format json`), no socket client; missing or unreachable Docker degrades to empty hints.
 15. **Release and install path** - Linux/macOS/Windows release builds, checksums, `install.sh`, `install.ps1`, README docs, toward one-command installs from `portdoc.dev`.
 
 ## Data model
@@ -142,4 +142,5 @@ behind a second explicit yes.
 > Resolved: `portdoc ui` shipped at feature 2 as an explicit alias of the
 > default launch command. Local config storage decided 2026-07-07 (platform
 > config dir via `dirs`, JSON). Conflicts reworked 2026-07-07 (bump inference
-> dropped, tab retired, shared-port facts stay).
+> dropped, tab retired, shared-port facts stay). Docker hints mechanism decided
+> 2026-07-08 (docker CLI, no socket client).

@@ -1,6 +1,7 @@
 mod action;
 mod adapter;
 mod config;
+mod docker;
 mod hint;
 mod label;
 mod probe;
