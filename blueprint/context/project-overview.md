@@ -39,7 +39,7 @@ In build-plan order. The headline feature is the **project-grouped dashboard**
 13a. **Inspect drawer and port lookup** - a dashboard "look up a port" field opens an inspect drawer for that exact port (one listener, nothing, or multiple listeners); clicking a row opens the same drawer. Full details plus non-persistent quick actions (open/copy URL, copy kill command, reveal folder, stop). No config storage.
 13b. **Ignore service** - hide a service, persisted in local config. Config decided 2026-07-07: JSON at the platform config dir via the `dirs` crate.
 14. **Docker and Advanced tabs** - Docker/Compose hints, raw socket details, JSON export, unknown-owner diagnostics (well-known-port hints like ":22 - usually SSH" plus why the owner is unreadable), desktop app labels (VS Code, Discord) extending the feature 8 vocabulary, kept out of the main dashboard. Docker mechanism decided 2026-07-08: shell out to the docker CLI (`docker ps --format json`), no socket client; missing or unreachable Docker degrades to empty hints.
-15. **Release and install path** - Linux/macOS/Windows release builds, checksums, `install.sh`, `install.ps1`, README docs, toward one-command installs from `portdoc.dev`.
+15. **Release and install path** - split 2026-07-08: 15a macOS probe and 15b Windows probe land first (behind the feature 4 boundary, so every installed binary has a working dashboard), then 15c ships the cargo-dist release pipeline - Linux/macOS/Windows binaries, checksums, curl shell installer, PowerShell installer, and a Homebrew tap, served from GitHub Releases until `portdoc.dev` redirects to them.
 
 ## Data model
 
@@ -141,9 +141,10 @@ behind a second explicit yes.
 
 > Resolve in the plans, then re-run /overview.
 
-- **macOS/Windows gap:** feature 15 ships macOS and Windows release builds, but no build item implements probing for those platforms (feature 4 is explicitly Linux-first). Either add probe items for those platforms before 15, or scope 15's installers to Linux-first.
-
-> Resolved: `portdoc ui` shipped at feature 2 as an explicit alias of the
+> Resolved: the macOS/Windows gap closed 2026-07-08 - feature 15 split into
+> 15a (macOS probe) and 15b (Windows probe) before 15c (cargo-dist release
+> pipeline), so installers never ship an empty dashboard.
+> `portdoc ui` shipped at feature 2 as an explicit alias of the
 > default launch command. Local config storage decided 2026-07-07 (platform
 > config dir via `dirs`, JSON). Conflicts reworked 2026-07-07 (bump inference
 > dropped, tab retired, shared-port facts stay). Docker hints mechanism decided

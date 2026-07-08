@@ -42,6 +42,11 @@ recording, debugging, or jumping between projects.
   Docker, and Advanced. (The Conflicts tab was retired 2026-07-07 with the
   conflicts rework.)
 - Release path with single-binary builds and OS-specific installer scripts.
+  Decided 2026-07-08 (build item 15): macOS and Windows probes ship before the
+  release so every installed binary has a working dashboard; installers are
+  generated with cargo-dist - curl shell installer (Linux/macOS), PowerShell
+  installer (Windows), and a Homebrew tap, served from GitHub Releases with
+  `portdoc.dev` redirecting to them later.
 
 ## 4. Data - What are we storing?
 
