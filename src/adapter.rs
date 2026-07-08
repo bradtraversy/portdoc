@@ -348,6 +348,8 @@ mod tests {
             port,
             pid,
             process,
+            uid: Some(1000),
+            user: Some("brad".into()),
         }
     }
 

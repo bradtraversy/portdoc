@@ -17,13 +17,15 @@ pub enum Protocol {
 
 #[derive(Debug, Clone)]
 pub struct ListeningSocket {
-    // Raw socket detail; unread until the Advanced tab (feature 14).
-    #[allow(dead_code)]
     pub protocol: Protocol,
     pub local_addr: IpAddr,
     pub port: u16,
     pub pid: Option<u32>,
     pub process: Option<ProcessInfo>,
+    /// Socket owner from the kernel table - readable even when the pid
+    /// join fails, which is what unknown-owner diagnostics rely on.
+    pub uid: Option<u32>,
+    pub user: Option<String>,
 }
 
 /// Everything but `pid` is optional: unknown owners are a first-class case.
@@ -59,9 +61,7 @@ pub enum ProbeError {
 }
 
 pub trait Probe {
-    /// Short backend name for diagnostics ("linux-proc"); surfaced by the
-    /// Advanced tab (feature 14).
-    #[allow(dead_code)]
+    /// Short backend name for diagnostics ("linux-proc").
     fn name(&self) -> &'static str;
     fn probe(&self) -> Result<ProbeOutput, ProbeError>;
 }

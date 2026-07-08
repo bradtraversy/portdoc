@@ -46,6 +46,8 @@ fn listening_sockets() -> Result<Vec<ListeningSocket>, ProbeError> {
                 port: entry.local_address.port(),
                 pid,
                 process,
+                uid: Some(entry.uid),
+                user: user_for_uid(entry.uid, &host.passwd),
             }
         })
         .collect())
@@ -214,6 +216,18 @@ mod tests {
         );
         assert!(info.cwd.is_some(), "own process cwd should be readable");
         assert!(info.user.is_some(), "own process user should resolve");
+        let my_uid = procfs::process::Process::myself()
+            .and_then(|p| p.uid())
+            .expect("own uid should be readable");
+        assert_eq!(
+            own.uid,
+            Some(my_uid),
+            "own socket should carry our uid from the kernel table"
+        );
+        assert_eq!(
+            own.user, info.user,
+            "socket owner and process user should agree for our own listener"
+        );
         assert!(
             info.started_secs_ago.is_some(),
             "own process age should compute"

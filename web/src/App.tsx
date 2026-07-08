@@ -7,7 +7,7 @@ import { InspectContext, type InspectTarget } from './lib/inspect'
 import type { Service } from './lib/types'
 import { TopBar } from './components/TopBar'
 import { TabBar, type TabId } from './components/TabBar'
-import { Placeholder } from './components/Placeholder'
+import { AdvancedView } from './components/AdvancedView'
 import { DashboardView } from './components/DashboardView'
 import { DockerView } from './components/DockerView'
 import { ProjectGroups } from './components/ProjectGroups'
@@ -15,13 +15,6 @@ import { ServicesTable } from './components/ServicesTable'
 import { StopDialog } from './components/StopDialog'
 import { InspectDrawer } from './components/InspectDrawer'
 import { Button } from './components/ui/button'
-
-const placeholders: Record<
-  Exclude<TabId, 'dashboard' | 'projects' | 'services' | 'docker'>,
-  { title: string; note: string }
-> = {
-  advanced: { title: 'Advanced', note: 'Raw sockets, JSON export, and diagnostics land with feature 14.' },
-}
 
 export default function App() {
   const [tab, setTab] = useState<TabId>('dashboard')
@@ -69,9 +62,7 @@ export default function App() {
           <ServicesTable snapshot={snapshot} query={query} onQueryChange={setQuery} />
         )}
         {snapshot && tab === 'docker' && <DockerView snapshot={snapshot} />}
-        {snapshot && tab === 'advanced' && (
-          <Placeholder title={placeholders.advanced.title} note={placeholders.advanced.note} />
-        )}
+        {snapshot && tab === 'advanced' && <AdvancedView />}
       </main>
       {snapshot && inspect && (
         <InspectDrawer target={inspect} snapshot={snapshot} onClose={() => setInspect(null)} />

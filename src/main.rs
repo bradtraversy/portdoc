@@ -1,5 +1,6 @@
 mod action;
 mod adapter;
+mod advanced;
 mod config;
 mod docker;
 mod hint;
@@ -71,6 +72,7 @@ async fn main() {
     let app = Router::new()
         .route("/api/health", get(health))
         .route("/api/snapshot", get(api_snapshot))
+        .route("/api/sockets", get(api_sockets))
         .route("/api/config", get(api_config))
         .route("/api/ignore", post(api_ignore))
         .route("/api/stop", post(api_stop))
@@ -164,6 +166,16 @@ async fn api_snapshot() -> Response {
 
 fn snapshot_error(message: String) -> Response {
     api_error(StatusCode::INTERNAL_SERVER_ERROR, message)
+}
+
+/// Raw pre-merge sockets and unknown-owner diagnostics for the Advanced tab;
+/// same blocking-probe treatment as /api/snapshot.
+async fn api_sockets() -> Response {
+    match tokio::task::spawn_blocking(advanced::live_sockets).await {
+        Ok(Ok(sockets)) => Json(sockets).into_response(),
+        Ok(Err(err)) => snapshot_error(format!("probe failed: {err}")),
+        Err(err) => snapshot_error(format!("probe task failed: {err}")),
+    }
 }
 
 fn api_error(status: StatusCode, message: String) -> Response {
