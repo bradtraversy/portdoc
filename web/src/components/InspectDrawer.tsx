@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Copy, ExternalLink, EyeOff, FolderOpen, Square, X } from 'lucide-react'
 import type { DevSnapshot, DockerHint, ProjectGroup, Service } from '../lib/types'
 import type { InspectTarget } from '../lib/inspect'
-import { canStop, conflictedIds, displayName, stopBlockedReason } from '../lib/derive'
+import { canStop, conflictedIds, displayName, stopBlockedReason, wellKnownHint } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
 import { useConfig } from '../lib/config'
 import { Badge } from './ui/badge'
@@ -129,6 +129,7 @@ function ServiceDetail({
 
       <dl className="space-y-1.5 text-xs">
         <Field label="Port" value={`:${service.port}`} />
+        <Field label="Usually" value={wellKnownHint(service)?.replace('usually ', '')} plain />
         <Field label="PID" value={service.pid?.toString()} />
         <Field label="Process" value={service.process_name} />
         <Field label="Command" value={service.command} />
@@ -142,6 +143,12 @@ function ServiceDetail({
         <Field label="Age" value={service.started_age} />
         <Field label="Stale" value={service.stale?.reason} plain />
       </dl>
+
+      {service.pid === undefined && (
+        <p className="mt-3 text-xs text-faint">
+          The owner process is unreadable from this user - the Advanced tab explains why.
+        </p>
+      )}
 
       <div className="mt-3.5 flex flex-wrap gap-1.5">
         <CopyButton

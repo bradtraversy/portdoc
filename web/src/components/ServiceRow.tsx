@@ -1,6 +1,6 @@
 import { EllipsisVertical, ExternalLink, Shield, Square } from 'lucide-react'
 import type { DockerHint, Service } from '../lib/types'
-import { canStop, displayName, isSelf, stopBlockedReason } from '../lib/derive'
+import { canStop, displayName, isSelf, stopBlockedReason, wellKnownHint } from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
 import { useInspect } from '../lib/inspect'
 import { Badge } from './ui/badge'
@@ -24,7 +24,7 @@ function subLine(service: Service, dockerHint?: DockerHint): string | undefined 
     service.pid !== undefined ? `PID ${service.pid}` : undefined,
     service.command,
   ].filter(Boolean)
-  return parts.length ? parts.join(' · ') : undefined
+  return parts.length ? parts.join(' · ') : wellKnownHint(service)
 }
 
 export function ServiceRow({ service, conflicted, dockerHint }: ServiceRowProps) {

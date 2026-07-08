@@ -8,7 +8,14 @@ import {
 import { EllipsisVertical, ExternalLink, Square } from 'lucide-react'
 import type { BadgeVariant } from './ui/badge'
 import type { DevSnapshot, DockerHint, Exposure, ProjectGroup, Service } from '../lib/types'
-import { canStop, conflictedIds, displayName, isSelf, stopBlockedReason } from '../lib/derive'
+import {
+  canStop,
+  conflictedIds,
+  displayName,
+  isSelf,
+  stopBlockedReason,
+  wellKnownHint,
+} from '../lib/derive'
 import { useRequestStop } from '../lib/stop'
 import { useInspect } from '../lib/inspect'
 import { useConfig } from '../lib/config'
@@ -48,6 +55,9 @@ const columns = [
           <span className="font-mono text-xs text-faint">
             {row.original.service.process_name}
           </span>
+        )}
+        {wellKnownHint(row.original.service) && (
+          <span className="text-xs text-faint">{wellKnownHint(row.original.service)}</span>
         )}
       </span>
     ),

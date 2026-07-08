@@ -53,6 +53,29 @@ export function servicesOnPort(snapshot: DevSnapshot, port: number): Service[] {
   return snapshot.services.filter((s) => s.port === port)
 }
 
+// Mirrors the Rust well-known-port table (src/advanced.rs), not shared with it.
+const WELL_KNOWN_PORTS = new Map<number, string>([
+  [22, 'usually SSH'],
+  [25, 'usually SMTP mail'],
+  [53, 'usually DNS'],
+  [80, 'usually HTTP'],
+  [111, 'usually rpcbind/NFS'],
+  [443, 'usually HTTPS'],
+  [587, 'usually SMTP mail submission'],
+  [631, 'usually printing (IPP/CUPS)'],
+  [3306, 'usually MySQL'],
+  [5353, 'usually mDNS'],
+  [5432, 'usually Postgres'],
+  [6379, 'usually Redis'],
+  [27017, 'usually MongoDB'],
+])
+
+// Folklore, not identity: only offered when the row has no real name at all.
+export function wellKnownHint(service: Service): string | undefined {
+  if (service.framework || service.process_name) return undefined
+  return WELL_KNOWN_PORTS.get(service.port)
+}
+
 export function commonRoot(snapshot: DevSnapshot): string | null {
   const parents = snapshot.projects.map((p) => p.root.slice(0, p.root.lastIndexOf('/')))
   if (parents.length === 0) return null
