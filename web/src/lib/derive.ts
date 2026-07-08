@@ -53,6 +53,23 @@ export function servicesOnPort(snapshot: DevSnapshot, port: number): Service[] {
   return snapshot.services.filter((s) => s.port === port)
 }
 
+export interface GroupRollup {
+  count: number
+  stale: number
+  lan: number
+  ports: number[]
+}
+
+// Callers pass the group's visible members, so ignored services never count.
+export function groupRollup(services: Service[]): GroupRollup {
+  return {
+    count: services.length,
+    stale: services.filter((s) => s.stale).length,
+    lan: services.filter((s) => s.exposure === 'lan').length,
+    ports: [...new Set(services.map((s) => s.port))],
+  }
+}
+
 // Mirrors the Rust well-known-port table (src/advanced.rs), not shared with it.
 const WELL_KNOWN_PORTS = new Map<number, string>([
   [22, 'usually SSH'],

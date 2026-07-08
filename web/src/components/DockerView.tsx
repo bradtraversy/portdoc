@@ -1,8 +1,7 @@
 import { Box, Layers } from 'lucide-react'
 import type { DevSnapshot, DockerHint } from '../lib/types'
-import { servicesOnPort } from '../lib/derive'
-import { useInspect } from '../lib/inspect'
 import { Badge } from './ui/badge'
+import { PortChip } from './PortChip'
 
 interface Container {
   name: string
@@ -94,7 +93,6 @@ export function DockerView({ snapshot }: { snapshot: DevSnapshot }) {
 }
 
 function ContainerRow({ container, snapshot }: { container: Container; snapshot: DevSnapshot }) {
-  const inspect = useInspect()
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-3.5 border-b border-border px-4 py-2 last:border-b-0">
       <div className="min-w-0">
@@ -105,14 +103,7 @@ function ContainerRow({ container, snapshot }: { container: Container; snapshot:
       </div>
       <div className="flex items-center gap-1.5">
         {container.hints.map((hint) => (
-          <button
-            key={hint.port}
-            className="cursor-pointer rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs tabular-nums text-muted hover:text-text"
-            title={`Inspect port ${hint.port}`}
-            onClick={() => inspect({ port: hint.port, services: servicesOnPort(snapshot, hint.port) })}
-          >
-            :{hint.port}
-          </button>
+          <PortChip key={hint.port} port={hint.port} snapshot={snapshot} />
         ))}
       </div>
     </div>

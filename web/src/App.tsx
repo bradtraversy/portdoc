@@ -57,7 +57,7 @@ export default function App() {
         )}
         {!snapshot && !error && <p className="text-sm text-faint">Loading snapshot</p>}
         {snapshot && tab === 'dashboard' && <DashboardView snapshot={snapshot} />}
-        {snapshot && tab === 'projects' && <ProjectGroups snapshot={snapshot} />}
+        {snapshot && tab === 'projects' && <ProjectGroups snapshot={snapshot} detailed />}
         {snapshot && tab === 'services' && (
           <ServicesTable snapshot={snapshot} query={query} onQueryChange={setQuery} />
         )}
