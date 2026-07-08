@@ -8,7 +8,7 @@ use std::path::Path;
 /// Ordered by specificity: tools before runtimes, so "bunx vite" labels as
 /// Vite. Identifiers match command-token basenames with js extensions
 /// stripped, never raw substrings.
-const FRAMEWORKS: [(&str, &[&str]); 11] = [
+const FRAMEWORKS: [(&str, &[&str]); 12] = [
     ("Next.js", &["next", "next-server"]),
     ("Vite", &["vite"]),
     ("Astro", &["astro"]),
@@ -17,6 +17,7 @@ const FRAMEWORKS: [(&str, &[&str]); 11] = [
     ("React scripts", &["react-scripts"]),
     ("Convex", &["convex", "convex-local-backend"]),
     ("Express", &["express"]),
+    ("Paperclip", &["paperclipai", "paperclip"]),
     ("Bun", &["bun", "bunx"]),
     ("Postgres", &["postgres", "postmaster"]),
     ("Redis", &["redis-server"]),
@@ -56,7 +57,34 @@ pub fn detect_framework(name: Option<&str>, command: Option<&str>) -> Option<Str
     if let Some(extension) = vscode_extension(command) {
         return Some(format!("VS Code ({extension})"));
     }
-    table_match(&DESKTOP_APPS, &tokens)
+    table_match(&DESKTOP_APPS, &tokens).or_else(|| runtime_script(command))
+}
+
+const RUNTIMES: [&str; 4] = ["node", "deno", "python", "python3"];
+
+/// Script basenames that carry no identity; better an unlabeled row than
+/// half the table reading "server".
+const GENERIC_SCRIPTS: [&str; 9] = [
+    "index", "main", "server", "app", "cli", "run", "start", "dev", "script",
+];
+
+/// Last-resort label for the vocabulary's blind spot: a generic runtime
+/// running a named script ("node .../bin/paperclipai run") is identified by
+/// the script's basename, kept raw - it is a fact, not a product name.
+fn runtime_script(command: Option<&str>) -> Option<String> {
+    let mut tokens = command?.split_whitespace();
+    let runtime = clean_token(tokens.next()?);
+    if !RUNTIMES.contains(&runtime.as_str()) {
+        return None;
+    }
+    let script = clean_token(tokens.find(|t| !t.starts_with('-'))?);
+    if script.is_empty()
+        || GENERIC_SCRIPTS.contains(&script.as_str())
+        || RUNTIMES.contains(&script.as_str())
+    {
+        return None;
+    }
+    Some(script)
 }
 
 fn table_match(table: &[(&str, &[&str])], tokens: &[String]) -> Option<String> {
@@ -114,11 +142,11 @@ fn humanize(name: &str) -> String {
         .join(" ")
 }
 
-/// Path basename, lowercased, with node-ish extensions stripped
+/// Path basename, lowercased, with script extensions stripped
 /// (".../astro/bin/astro.mjs" -> "astro").
 fn clean_token(token: &str) -> String {
     let base = token.rsplit('/').next().unwrap_or(token).to_lowercase();
-    for ext in [".mjs", ".cjs", ".js"] {
+    for ext in [".mjs", ".cjs", ".js", ".ts", ".py"] {
         if let Some(stripped) = base.strip_suffix(ext) {
             return stripped.to_string();
         }
@@ -406,22 +434,78 @@ mod tests {
     }
 
     #[test]
-    fn prisma_without_studio_is_not_labeled() {
+    fn prisma_without_studio_is_not_prisma_studio() {
         assert_eq!(
-            detect("node /repo/node_modules/.bin/prisma migrate dev"),
-            None
+            detect("node /repo/node_modules/.bin/prisma migrate dev").as_deref(),
+            Some("prisma"),
+            "the script fallback names it honestly without claiming Studio"
         );
     }
 
     #[test]
     fn tokens_match_basenames_not_substrings() {
         assert_eq!(detect("/opt/nextcloud/server --port 8080"), None);
-        assert_eq!(detect("node /home/brad/next-project/server.js"), None);
-        assert_eq!(detect("python3 -m http.server 8123"), None);
         assert_eq!(
-            detect("node express-server.js"),
+            detect("node /home/brad/next-project/server.js"),
             None,
-            "an express app script is not the express token"
+            "a generic script basename earns no label"
+        );
+        assert_eq!(
+            detect("node express-server.js").as_deref(),
+            Some("express-server"),
+            "not the Express token, but the script basename is honest identity"
+        );
+    }
+
+    #[test]
+    fn paperclip_is_in_the_vocabulary() {
+        assert_eq!(
+            detect_framework(
+                Some("node"),
+                Some("node /home/brad/.nvm/versions/node/v24.18.0/bin/paperclipai run -i default"),
+            )
+            .as_deref(),
+            Some("Paperclip")
+        );
+    }
+
+    #[test]
+    fn runtime_scripts_label_with_their_basename() {
+        let cases = [
+            ("node /usr/local/bin/some-agent serve", Some("some-agent")),
+            ("python3 -m http.server 8123", Some("http.server")),
+            // subcommand-shaped invocations stay unlabeled: the fallback
+            // reads only the first non-flag token, never guesses past it
+            ("deno run --allow-net tool.ts", None),
+            (
+                "node --inspect=9229 worker-daemon.mjs",
+                Some("worker-daemon"),
+            ),
+            ("node /app/index.js", None),
+            ("node main.py", None),
+            ("node cli.js --port 3000", None),
+            ("node", None),
+            ("cargo run --bin thing", None),
+        ];
+        for (command, expected) in cases {
+            assert_eq!(detect(command).as_deref(), expected, "for: {command}");
+        }
+    }
+
+    #[test]
+    fn vocabulary_and_desktop_apps_beat_the_script_fallback() {
+        assert_eq!(
+            detect("node /repo/node_modules/.bin/vite dev").as_deref(),
+            Some("Vite")
+        );
+        assert_eq!(
+            detect_framework(
+                Some("node"),
+                Some("/usr/bin/electron /home/brad/app/tool-thing.js"),
+            )
+            .as_deref(),
+            Some("Electron"),
+            "electron is not a fallback runtime"
         );
     }
 
