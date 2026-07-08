@@ -2,9 +2,7 @@
 //! socket client). No docker binary, a stopped daemon, or garbage output all
 //! degrade to no hints - the snapshot must stay healthy without Docker.
 
-use std::io::Read;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 
@@ -30,50 +28,15 @@ struct PsLine {
 }
 
 pub fn running_containers() -> Vec<Container> {
-    match ps_output(Duration::from_secs(2)) {
+    match crate::exec::run(
+        "docker",
+        &["ps", "--format", "{{json .}}"],
+        None,
+        Duration::from_secs(2),
+    ) {
         Some(stdout) => parse_containers(&stdout),
         None => Vec::new(),
     }
-}
-
-/// Run `docker ps` with a hard deadline so a hung daemon can never stall
-/// the snapshot. Stdout is drained on a thread because a killed child only
-/// unblocks the reader once its pipe closes.
-fn ps_output(timeout: Duration) -> Option<String> {
-    let mut child = Command::new("docker")
-        .args(["ps", "--format", "{{json .}}"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let reader = std::thread::spawn(move || {
-        let mut buf = String::new();
-        let _ = stdout.read_to_string(&mut buf);
-        buf
-    });
-
-    let deadline = Instant::now() + timeout;
-    let success = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status.success(),
-            Ok(None) if Instant::now() >= deadline => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break false;
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(25)),
-            Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break false;
-            }
-        }
-    };
-
-    let output = reader.join().ok()?;
-    success.then_some(output)
 }
 
 /// One hint per published container port, joined to the listener that holds

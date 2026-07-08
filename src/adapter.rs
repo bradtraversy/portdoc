@@ -7,6 +7,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::facts::ProjectFacts;
 use crate::label::{ProjectLabels, detect_framework, http_looking, is_dev_server, project_labels};
 use crate::probe::{ListeningSocket, ProbeError, ProbeOutput, ProcessInfo, platform_probe};
 use crate::project::{Marker, detect_root, fs_marker};
@@ -25,7 +26,13 @@ pub fn live_snapshot() -> Result<DevSnapshot, ProbeError> {
 fn from_probe(output: ProbeOutput) -> DevSnapshot {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let mut services = services_from(output.sockets);
-    let projects = group_projects(&mut services, home.as_deref(), fs_marker, project_labels);
+    let projects = group_projects(
+        &mut services,
+        home.as_deref(),
+        fs_marker,
+        project_labels,
+        crate::facts::project_facts,
+    );
     let conflicts = crate::hint::detect_conflicts(&services);
     let docker_hints = crate::docker::hints(crate::docker::running_containers(), &services);
     DevSnapshot {
@@ -157,6 +164,7 @@ fn group_projects(
     home: Option<&Path>,
     marker_at: impl Fn(&Path) -> Option<Marker>,
     labels_at: impl Fn(&Path) -> ProjectLabels,
+    facts_at: impl Fn(&Path) -> ProjectFacts,
 ) -> Vec<ProjectGroup> {
     let mut root_by_cwd: HashMap<String, Option<PathBuf>> = HashMap::new();
     let mut members_by_root: Vec<(PathBuf, Vec<usize>)> = Vec::new();
@@ -189,6 +197,7 @@ fn group_projects(
                 services[i].project_id = Some(id.clone());
             }
             let labels = labels_at(root);
+            let facts = facts_at(root);
             ProjectGroup {
                 id: id.clone(),
                 name: basename(root),
@@ -196,6 +205,13 @@ fn group_projects(
                 package_manager: labels.package_manager,
                 git_branch: labels.git_branch,
                 service_ids: members.iter().map(|&i| services[i].id.clone()).collect(),
+                description: facts.description,
+                scripts: facts.scripts,
+                key_deps: facts.key_deps,
+                workspaces: facts.workspaces,
+                node_version: facts.node_version,
+                last_commit_age: facts.last_commit_secs_ago.map(humanize_age),
+                dirty: facts.dirty,
             }
         })
         .collect();
@@ -476,6 +492,7 @@ mod tests {
             Some(Path::new("/home/brad")),
             |dir| map.get(dir).copied(),
             |_| ProjectLabels::default(),
+            |_| ProjectFacts::default(),
         );
         (services, projects)
     }
@@ -496,9 +513,50 @@ mod tests {
                 package_manager: Some("npm".into()),
                 git_branch: Some("main".into()),
             },
+            |_| ProjectFacts::default(),
         );
         assert_eq!(projects[0].package_manager.as_deref(), Some("npm"));
         assert_eq!(projects[0].git_branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn facts_flow_onto_groups_with_humanized_commit_age() {
+        use crate::snapshot::{KeyDep, Script};
+        let mut services = services_from(vec![sock(
+            "127.0.0.1",
+            3000,
+            Some(10),
+            Some(proc_at(10, "node", "/home/brad/Code/app")),
+        )]);
+        let projects = group_projects(
+            &mut services,
+            Some(Path::new("/home/brad")),
+            |dir| (dir == Path::new("/home/brad/Code/app")).then_some(Marker::Repo),
+            |_| ProjectLabels::default(),
+            |_| ProjectFacts {
+                description: Some("does things".into()),
+                scripts: vec![Script {
+                    name: "dev".into(),
+                    command: "vite".into(),
+                }],
+                key_deps: vec![KeyDep {
+                    name: "vite".into(),
+                    version: Some("^6".into()),
+                }],
+                workspaces: vec!["apps/*".into()],
+                node_version: Some(">=22".into()),
+                last_commit_secs_ago: Some(3 * 86_400),
+                dirty: Some(true),
+            },
+        );
+        let group = &projects[0];
+        assert_eq!(group.description.as_deref(), Some("does things"));
+        assert_eq!(group.scripts[0].command, "vite");
+        assert_eq!(group.key_deps[0].name, "vite");
+        assert_eq!(group.workspaces, vec!["apps/*"]);
+        assert_eq!(group.node_version.as_deref(), Some(">=22"));
+        assert_eq!(group.last_commit_age.as_deref(), Some("3d"));
+        assert_eq!(group.dirty, Some(true));
     }
 
     #[test]

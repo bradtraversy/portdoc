@@ -78,6 +78,10 @@ feature 1 or not at all.
 - `package_manager` (string, optional)
 - `git_branch` (string, optional)
 - `service_ids` (string[]) - member services
+- Additive optional tail (extension decided 2026-07-08, feature 16b; fields
+  omitted when absent): `description`, `scripts` ({name, command}[]),
+  `key_deps` ({name, version?}[]), `workspaces` (string[]), `node_version`,
+  `last_commit_age`, `dirty` (bool)
 
 ### Conflict
 

@@ -8,7 +8,11 @@ export function PortChip({ port, snapshot }: { port: number; snapshot: DevSnapsh
     <button
       className="cursor-pointer rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-xs tabular-nums text-muted hover:text-text"
       title={`Inspect port ${port}`}
-      onClick={() => inspect({ port, services: servicesOnPort(snapshot, port) })}
+      onClick={(e) => {
+        // chips render inside clickable project headers; never open both
+        e.stopPropagation()
+        inspect({ port, services: servicesOnPort(snapshot, port) })
+      }}
     >
       :{port}
     </button>

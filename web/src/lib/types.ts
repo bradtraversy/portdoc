@@ -24,6 +24,17 @@ export interface Service {
   stale?: StaleHint
 }
 
+export interface Script {
+  name: string
+  command: string
+}
+
+export interface KeyDep {
+  name: string
+  version?: string
+}
+
+// The optional tail is the 2026-07-08 additive contract extension (16b).
 export interface ProjectGroup {
   id: string
   name: string
@@ -31,6 +42,13 @@ export interface ProjectGroup {
   package_manager?: string
   git_branch?: string
   service_ids: string[]
+  description?: string
+  scripts?: Script[]
+  key_deps?: KeyDep[]
+  workspaces?: string[]
+  node_version?: string
+  last_commit_age?: string
+  dirty?: boolean
 }
 
 export interface Conflict {

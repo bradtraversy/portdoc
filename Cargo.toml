@@ -2,6 +2,7 @@
 name = "portdoc"
 version = "0.1.0"
 edition = "2024"
+description = "Local dev server control panel"
 
 [dependencies]
 axum = "0.8"

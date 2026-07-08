@@ -56,7 +56,9 @@ pub struct StaleHint {
     pub reason: String,
 }
 
-#[derive(Serialize)]
+/// The optional tail is the 2026-07-08 additive extension of the feature-1
+/// contract (16b): fields are omitted when absent, never null.
+#[derive(Serialize, Default)]
 pub struct ProjectGroup {
     pub id: String,
     pub name: String,
@@ -66,6 +68,33 @@ pub struct ProjectGroup {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub git_branch: Option<String>,
     pub service_ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub scripts: Vec<Script>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub key_deps: Vec<KeyDep>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub workspaces: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_commit_age: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dirty: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct Script {
+    pub name: String,
+    pub command: String,
+}
+
+#[derive(Serialize)]
+pub struct KeyDep {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 #[derive(Serialize)]

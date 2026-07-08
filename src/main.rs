@@ -3,6 +3,8 @@ mod adapter;
 mod advanced;
 mod config;
 mod docker;
+mod exec;
+mod facts;
 mod hint;
 mod label;
 mod probe;

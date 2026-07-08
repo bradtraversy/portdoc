@@ -52,7 +52,11 @@ inspection details. Local-only config (first needed by build item 13b, ignore
 service) stores ignored services and later UI preferences and trusted project
 roots. Decided 2026-07-07: it lives as JSON in the platform config directory
 via the `dirs` crate - `~/.config/portdoc/config.json` on Linux, Application
-Support on macOS, AppData on Windows.
+Support on macOS, AppData on Windows. Decided 2026-07-08 (build item 16b): the
+`ProjectGroup` shape gains an additive optional tail - description, scripts,
+key deps, workspaces, node version, last commit age, dirty - the first
+deliberate extension of the feature-1 contract; fields are omitted when
+absent so existing `--json` consumers keep working.
 
 ## 5. Tech - What stack are we using?
 

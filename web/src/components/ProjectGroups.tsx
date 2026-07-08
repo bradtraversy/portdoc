@@ -1,5 +1,5 @@
 import { Box, GitBranch } from 'lucide-react'
-import type { DevSnapshot, Service } from '../lib/types'
+import type { DevSnapshot, ProjectGroup as ProjectGroupType, Service } from '../lib/types'
 import { conflictedIds, dockerServices, groupRollup, ungroupedServices } from '../lib/derive'
 import { useConfig } from '../lib/config'
 import { Badge } from './ui/badge'
@@ -13,9 +13,10 @@ function uniqueFrameworks(services: Service[]): string[] {
 interface ProjectGroupsProps {
   snapshot: DevSnapshot
   detailed?: boolean
+  onProjectOpen?: (project: ProjectGroupType) => void
 }
 
-export function ProjectGroups({ snapshot, detailed }: ProjectGroupsProps) {
+export function ProjectGroups({ snapshot, detailed, onProjectOpen }: ProjectGroupsProps) {
   const conflicted = conflictedIds(snapshot)
   const { ignored } = useConfig()
   const byId = new Map(snapshot.services.map((s) => [s.id, s]))
@@ -47,7 +48,15 @@ export function ProjectGroups({ snapshot, detailed }: ProjectGroupsProps) {
         if (services.length === 0) return null
         return (
           <section key={project.id} className="overflow-hidden rounded-lg border border-border bg-surface">
-            <div className="border-b border-border px-4 py-2.5">
+            <div
+              className={
+                onProjectOpen
+                  ? 'cursor-pointer border-b border-border px-4 py-2.5 hover:bg-surface-2'
+                  : 'border-b border-border px-4 py-2.5'
+              }
+              title={onProjectOpen ? 'Project details' : undefined}
+              onClick={onProjectOpen && (() => onProjectOpen(project))}
+            >
               <div className="flex items-center gap-2.5">
                 <span className="font-semibold">{project.name}</span>
                 <span className="font-mono text-xs text-faint">{project.root}</span>
@@ -64,6 +73,9 @@ export function ProjectGroups({ snapshot, detailed }: ProjectGroupsProps) {
                   ))}
                 </div>
               </div>
+              {detailed && project.description && (
+                <p className="mt-1 truncate text-xs text-muted">{project.description}</p>
+              )}
               {rollup(services)}
             </div>
             {services.map(row)}
