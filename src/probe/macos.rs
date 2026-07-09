@@ -104,11 +104,12 @@ fn raw_listeners() -> Result<Vec<RawListener>, ProbeError> {
 /// Best-effort process metadata; any unreadable piece degrades to None.
 fn process_info(pid: u32, system: &System, users: &Users, now: u64) -> Option<ProcessInfo> {
     let process = system.process(Pid::from_u32(pid))?;
-    let cmd: Vec<String> = process
+    let mut cmd: Vec<String> = process
         .cmd()
         .iter()
         .map(|part| part.to_string_lossy().into_owned())
         .collect();
+    trim_env_tail(&mut cmd);
 
     Some(ProcessInfo {
         pid,
@@ -143,6 +144,29 @@ fn expand_name(name: Option<&str>, first_arg: Option<&str>) -> Option<String> {
 fn name_token(first_arg: &str) -> &str {
     let token = first_arg.split_whitespace().next().unwrap_or(first_arg);
     token.rsplit('/').next().unwrap_or(token)
+}
+
+/// Processes that rewrite their title (redis-server, postgres) make the
+/// KERN_PROCARGS2 argv sysinfo reads spill trailing environment entries
+/// ("redis-server 127.0.0.1:6379 XPC_FLAGS=1"); drop them from the tail.
+/// argv[0] always survives.
+fn trim_env_tail(cmd: &mut Vec<String>) {
+    while cmd.len() > 1 && is_env_assignment(cmd.last().expect("len checked")) {
+        cmd.pop();
+    }
+}
+
+/// Conservative: only SCREAMING_SNAKE keys read as environment entries, so
+/// real arguments like "--port=3000" or "host=x" are never trimmed.
+fn is_env_assignment(token: &str) -> bool {
+    let Some((key, _)) = token.split_once('=') else {
+        return false;
+    };
+    !key.is_empty()
+        && key
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+        && !key.chars().next().is_some_and(|c| c.is_ascii_digit())
 }
 
 fn now_epoch_secs() -> u64 {
@@ -243,6 +267,47 @@ mod tests {
         assert_eq!(expand_name(Some("node"), None).as_deref(), Some("node"));
         assert_eq!(expand_name(None, None), None);
         assert_eq!(expand_name(Some("  "), Some("")), None);
+    }
+
+    #[test]
+    fn trim_env_tail_drops_leaked_environment_entries_only() {
+        let mut cmd: Vec<String> = [
+            "redis-server 127.0.0.1:6379",
+            "XPC_FLAGS=1",
+            "PATH=/usr/bin",
+        ]
+        .map(String::from)
+        .to_vec();
+        trim_env_tail(&mut cmd);
+        assert_eq!(cmd, vec!["redis-server 127.0.0.1:6379"]);
+
+        let mut cmd: Vec<String> = ["node", "server.js", "--port=3000"]
+            .map(String::from)
+            .to_vec();
+        trim_env_tail(&mut cmd);
+        assert_eq!(
+            cmd.len(),
+            3,
+            "lowercase --port=3000 is an argument, not env"
+        );
+
+        let mut cmd: Vec<String> = ["FOO=1"].map(String::from).to_vec();
+        trim_env_tail(&mut cmd);
+        assert_eq!(cmd, vec!["FOO=1"], "argv[0] always survives");
+    }
+
+    #[test]
+    fn is_env_assignment_is_conservative() {
+        assert!(is_env_assignment("XPC_FLAGS=1"));
+        assert!(
+            is_env_assignment("MallocNanoZone=0") == false,
+            "mixed case is not env-shaped"
+        );
+        assert!(!is_env_assignment("--port=3000"));
+        assert!(!is_env_assignment("host=local"));
+        assert!(!is_env_assignment("127.0.0.1:6379"));
+        assert!(!is_env_assignment("=broken"));
+        assert!(!is_env_assignment("8080=weird"));
     }
 
     #[test]

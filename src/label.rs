@@ -64,9 +64,13 @@ const RUNTIMES: [&str; 4] = ["node", "deno", "python", "python3"];
 
 /// Script basenames that carry no identity; better an unlabeled row than
 /// half the table reading "server".
-const GENERIC_SCRIPTS: [&str; 9] = [
-    "index", "main", "server", "app", "cli", "run", "start", "dev", "script",
+const GENERIC_SCRIPTS: [&str; 10] = [
+    "index", "main", "server", "app", "cli", "run", "start", "dev", "script", "eval",
 ];
+
+/// Flags whose next argument is inline code, not a script path; labeling by
+/// the first word of code would be a guess.
+const INLINE_CODE_FLAGS: [&str; 4] = ["-c", "-e", "-p", "--eval"];
 
 /// Last-resort label for the vocabulary's blind spot: a generic runtime
 /// running a named script ("node .../bin/paperclipai run") is identified by
@@ -77,7 +81,17 @@ fn runtime_script(command: Option<&str>) -> Option<String> {
     if !RUNTIMES.contains(&runtime.as_str()) {
         return None;
     }
-    let script = clean_token(tokens.find(|t| !t.starts_with('-'))?);
+    let mut script = None;
+    for token in tokens {
+        if INLINE_CODE_FLAGS.contains(&token) {
+            return None;
+        }
+        if !token.starts_with('-') {
+            script = Some(clean_token(token));
+            break;
+        }
+    }
+    let script = script?;
     if script.is_empty()
         || GENERIC_SCRIPTS.contains(&script.as_str())
         || RUNTIMES.contains(&script.as_str())
@@ -486,6 +500,12 @@ mod tests {
             ("node cli.js --port 3000", None),
             ("node", None),
             ("cargo run --bin thing", None),
+            // inline code is not a script: the first word of a -c/-e payload
+            // ("import", "console.log(1)") must never become a label
+            ("python3 -c import signal, http.server; serve()", None),
+            ("node -e console.log(1)", None),
+            ("node --eval console.log(1)", None),
+            ("deno eval 1+1", None),
         ];
         for (command, expected) in cases {
             assert_eq!(detect(command).as_deref(), expected, "for: {command}");
