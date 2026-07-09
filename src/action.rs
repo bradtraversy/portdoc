@@ -6,8 +6,11 @@ use std::time::Duration;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StopError {
+    // Only the unix terminate constructs these two.
+    #[cfg_attr(not(unix), allow(dead_code))]
     #[error("permission denied - the process is owned by another user")]
     NotPermitted,
+    #[cfg_attr(not(unix), allow(dead_code))]
     #[error("no such process")]
     NoSuchProcess,
     #[error("failed to signal the process: {0}")]
@@ -57,9 +60,11 @@ pub fn wait_released(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::process::{Child, Command};
 
     /// Bounded reap so a failed signal cannot hang the suite.
+    #[cfg(unix)]
     fn exits_within(child: &mut Child, tries: u32) -> bool {
         for _ in 0..tries {
             if child.try_wait().expect("try_wait").is_some() {
@@ -71,6 +76,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn sigterm_stops_a_cooperative_child() {
         let mut child = Command::new("sleep")
             .arg("30")
@@ -81,6 +87,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn sigkill_stops_a_term_ignoring_child() {
         let mut child = Command::new("sh")
             .args(["-c", r#"trap "" TERM; sleep 30"#])
@@ -101,6 +108,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn nonexistent_pid_is_no_such_process() {
         // far above any default pid_max, so it cannot exist
         let err = terminate(0x3FF_FFFF, false).expect_err("must fail");
@@ -108,6 +116,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(unix))]
+    fn terminate_is_unsupported_off_unix() {
+        let err = terminate(1234, false).expect_err("must fail");
+        assert!(matches!(err, StopError::Unsupported));
+    }
+
+    #[test]
+    #[cfg(unix)]
     fn signaling_init_is_not_permitted() {
         // SAFETY-adjacent guard: only meaningful (and only safe) as non-root.
         // SAFETY: geteuid has no preconditions.

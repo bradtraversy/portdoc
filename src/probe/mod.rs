@@ -8,6 +8,8 @@
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "windows")]
+mod windows;
 
 use std::net::IpAddr;
 use std::path::PathBuf;
@@ -16,7 +18,10 @@ use std::path::PathBuf;
 pub enum Protocol {
     // Only probe implementations construct this; platforms without one
     // would otherwise flag it dead.
-    #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_os = "linux", target_os = "macos", target_os = "windows")),
+        allow(dead_code)
+    )]
     Tcp,
 }
 
@@ -54,7 +59,10 @@ pub struct ProbeOutput {
 #[derive(Debug, thiserror::Error)]
 pub enum ProbeError {
     #[error("failed to read {path}: {source}")]
-    #[cfg_attr(not(any(target_os = "linux", target_os = "macos")), allow(dead_code))]
+    #[cfg_attr(
+        not(any(target_os = "linux", target_os = "macos", target_os = "windows")),
+        allow(dead_code)
+    )]
     Io {
         path: String,
         #[source]
@@ -82,7 +90,12 @@ pub fn platform_probe() -> Option<Box<dyn Probe>> {
     Some(Box::new(macos::MacProbe))
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(target_os = "windows")]
+pub fn platform_probe() -> Option<Box<dyn Probe>> {
+    Some(Box::new(windows::WindowsProbe))
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub fn platform_probe() -> Option<Box<dyn Probe>> {
     None
 }
@@ -119,6 +132,22 @@ mod tests {
     fn macos_probe_runs() {
         let probe = platform_probe().expect("macos should have a probe");
         let output = probe.probe().expect("probe should succeed on macos");
+        // sorted by port, per the probe's stability guarantee
+        assert!(output.sockets.is_sorted_by_key(|s| s.port));
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn windows_gets_a_probe() {
+        let probe = platform_probe().expect("windows should have a probe");
+        assert_eq!(probe.name(), "windows-netstat");
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn windows_probe_runs() {
+        let probe = platform_probe().expect("windows should have a probe");
+        let output = probe.probe().expect("probe should succeed on windows");
         // sorted by port, per the probe's stability guarantee
         assert!(output.sockets.is_sorted_by_key(|s| s.port));
     }

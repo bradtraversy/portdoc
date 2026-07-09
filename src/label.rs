@@ -156,11 +156,16 @@ fn humanize(name: &str) -> String {
         .join(" ")
 }
 
-/// Path basename, lowercased, with script extensions stripped
-/// (".../astro/bin/astro.mjs" -> "astro").
+/// Path basename (both separators, so Windows paths clean too), lowercased,
+/// with binary and script extensions stripped (".../astro/bin/astro.mjs" ->
+/// "astro", "node.exe" -> "node").
 fn clean_token(token: &str) -> String {
-    let base = token.rsplit('/').next().unwrap_or(token).to_lowercase();
-    for ext in [".mjs", ".cjs", ".js", ".ts", ".py"] {
+    let base = token
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(token)
+        .to_lowercase();
+    for ext in [".exe", ".mjs", ".cjs", ".js", ".ts", ".py"] {
         if let Some(stripped) = base.strip_suffix(ext) {
             return stripped.to_string();
         }
@@ -314,6 +319,32 @@ mod tests {
     #[test]
     fn specific_tools_beat_runtimes() {
         assert_eq!(detect("bunx vite dev").as_deref(), Some("Vite"));
+    }
+
+    #[test]
+    fn detects_windows_command_shapes() {
+        assert_eq!(
+            detect_framework(
+                Some("node.exe"),
+                Some(r"C:\Program Files\nodejs\node.exe C:\dev\app\node_modules\.bin\next dev"),
+            )
+            .as_deref(),
+            Some("Next.js"),
+            "backslash basenames and .exe strip like their unix twins"
+        );
+        assert_eq!(
+            detect(r"node.exe C:\dev\app\node_modules\vite\bin\vite.js").as_deref(),
+            Some("Vite")
+        );
+        assert_eq!(
+            detect_framework(Some("Code.exe"), None).as_deref(),
+            Some("VS Code")
+        );
+        assert_eq!(
+            detect(r"node.exe C:\dev\tool\build-server.js").as_deref(),
+            Some("build-server"),
+            "the runtime-script fallback sees through .exe"
+        );
     }
 
     #[test]

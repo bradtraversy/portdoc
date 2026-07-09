@@ -54,16 +54,40 @@ pub fn run(program: &str, args: &[&str], dir: Option<&Path>, timeout: Duration) 
 mod tests {
     use super::*;
 
+    // Per-OS command fixtures so every test runs on the whole CI matrix.
+    #[cfg(unix)]
+    const ECHO_HELLO: (&str, &[&str]) = ("echo", &["hello"]);
+    #[cfg(windows)]
+    const ECHO_HELLO: (&str, &[&str]) = ("cmd", &["/C", "echo hello"]);
+
+    #[cfg(unix)]
+    const EXIT_NONZERO: (&str, &[&str]) = ("false", &[]);
+    #[cfg(windows)]
+    const EXIT_NONZERO: (&str, &[&str]) = ("cmd", &["/C", "exit 1"]);
+
+    #[cfg(unix)]
+    const HANG_30S: (&str, &[&str]) = ("sleep", &["30"]);
+    // ping waits a second between its 31 probes - the Windows sleep idiom
+    #[cfg(windows)]
+    const HANG_30S: (&str, &[&str]) = ("ping", &["-n", "31", "127.0.0.1"]);
+
+    #[cfg(unix)]
+    const PRINT_CWD: (&str, &[&str]) = ("pwd", &[]);
+    #[cfg(windows)]
+    const PRINT_CWD: (&str, &[&str]) = ("cmd", &["/C", "cd"]);
+
     #[test]
     fn captures_stdout_of_a_successful_command() {
-        let out = run("echo", &["hello"], None, Duration::from_secs(5)).expect("echo runs");
+        let (program, args) = ECHO_HELLO;
+        let out = run(program, args, None, Duration::from_secs(5)).expect("echo runs");
         assert_eq!(out.trim(), "hello");
     }
 
     #[test]
     fn failures_degrade_to_none() {
+        let (program, args) = EXIT_NONZERO;
         assert!(
-            run("false", &[], None, Duration::from_secs(5)).is_none(),
+            run(program, args, None, Duration::from_secs(5)).is_none(),
             "non-zero exit"
         );
         assert!(
@@ -74,8 +98,9 @@ mod tests {
 
     #[test]
     fn deadline_kills_a_hung_command() {
+        let (program, args) = HANG_30S;
         let started = Instant::now();
-        assert!(run("sleep", &["30"], None, Duration::from_millis(200)).is_none());
+        assert!(run(program, args, None, Duration::from_millis(200)).is_none());
         assert!(
             started.elapsed() < Duration::from_secs(5),
             "the deadline must cut the wait short"
@@ -84,12 +109,14 @@ mod tests {
 
     #[test]
     fn runs_in_the_given_directory() {
-        let out =
-            run("pwd", &[], Some(Path::new("/tmp")), Duration::from_secs(5)).expect("pwd runs");
-        // canonicalize both sides: /tmp is a symlink to /private/tmp on macOS
+        let dir = std::env::temp_dir();
+        let (program, args) = PRINT_CWD;
+        let out = run(program, args, Some(&dir), Duration::from_secs(5)).expect("print cwd runs");
+        // canonicalize both sides: temp dirs hide behind symlinks on macOS
+        // (/tmp -> /private/tmp) and UNC prefixes on Windows
         assert_eq!(
-            std::fs::canonicalize(out.trim()).expect("canonicalize pwd output"),
-            std::fs::canonicalize("/tmp").expect("canonicalize /tmp")
+            std::fs::canonicalize(out.trim()).expect("canonicalize cwd output"),
+            std::fs::canonicalize(&dir).expect("canonicalize temp dir")
         );
     }
 }
