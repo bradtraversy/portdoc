@@ -5,6 +5,13 @@
 macos matrix, `probe_sees_own_listener` passed on the macos-latest runner).
 Step 4 (live trav-studio verification) deferred by decision at /complete:
 merged on CI evidence; the live check must happen before 15c ships a release.
+**Step 4 verified 2026-07-09** with a live dashboard screenshot from
+trav-studio (vault Inbox): 10 services across 2 projects, portdoc grouped
+under `~/Code/portdoc` (main/cargo), Redis under `/opt/homebrew`, desktop app
+labels resolving from .app bundle paths, root daemons (ARDAgent,
+ControlCenter, rapportd) joined to pids with correct LAN-visible badges.
+Known cosmetic issue for a later fix: sysinfo argv can pick up a trailing
+env fragment after a rewritten process title (`redis-server ... XPC_FLAGS=1`).
 
 ## Goal
 
@@ -91,7 +98,7 @@ was too big, so split it.
   one (bind a listener, assert pid/name/command/cwd/user/age resolve for our
   own process). *Done when:* that test passes on the macOS CI runner and the
   pure-helper tests pass in the normal suite.
-- [ ] **Step 4 (DEFERRED to before the 15c release) - live verification on trav-studio** - pull the branch on the
+- [x] **Step 4 (verified 2026-07-09 after deferral) - live verification on trav-studio** - pull the branch on the
   Mac, `cargo run` with at least one real dev server up; dashboard shows it
   with port, pid, cwd-derived project grouping, and framework label; Advanced
   tab shows probe `"macos-netstat"` and honest unknown-owner reasons for

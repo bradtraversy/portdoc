@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useSnapshot } from './lib/useSnapshot'
-import { StopContext } from './lib/stop'
+import { StopAllContext, StopContext, type StopAllRequest } from './lib/stop'
 import { ConfigContext, useConfigState } from './lib/config'
 import { InspectContext, type InspectTarget } from './lib/inspect'
 import type { ProjectGroup, Service } from './lib/types'
@@ -13,6 +13,7 @@ import { DockerView } from './components/DockerView'
 import { ProjectGroups } from './components/ProjectGroups'
 import { ServicesTable } from './components/ServicesTable'
 import { StopDialog } from './components/StopDialog'
+import { StopAllDialog } from './components/StopAllDialog'
 import { InspectDrawer } from './components/InspectDrawer'
 import { ProjectDrawer } from './components/ProjectDrawer'
 import { Button } from './components/ui/button'
@@ -21,6 +22,7 @@ export default function App() {
   const [tab, setTab] = useState<TabId>('dashboard')
   const [query, setQuery] = useState('')
   const [stopTarget, setStopTarget] = useState<Service | null>(null)
+  const [stopAllTarget, setStopAllTarget] = useState<StopAllRequest | null>(null)
   const [inspect, setInspect] = useState<InspectTarget | null>(null)
   const [projectTarget, setProjectTarget] = useState<ProjectGroup | null>(null)
   const { snapshot, error, loading, fetchedAt, refresh } = useSnapshot()
@@ -44,6 +46,7 @@ export default function App() {
 
   return (
     <StopContext.Provider value={setStopTarget}>
+    <StopAllContext.Provider value={setStopAllTarget}>
     <InspectContext.Provider value={openInspect}>
     <ConfigContext.Provider value={configState}>
     <div className="min-h-screen">
@@ -88,6 +91,13 @@ export default function App() {
           onClose={() => setProjectTarget(null)}
         />
       )}
+      {stopAllTarget && (
+        <StopAllDialog
+          projectName={stopAllTarget.projectName}
+          services={stopAllTarget.services}
+          onClose={() => setStopAllTarget(null)}
+        />
+      )}
       {stopTarget && (
         <StopDialog
           service={stopTarget}
@@ -101,6 +111,7 @@ export default function App() {
     </div>
     </ConfigContext.Provider>
     </InspectContext.Provider>
+    </StopAllContext.Provider>
     </StopContext.Provider>
   )
 }

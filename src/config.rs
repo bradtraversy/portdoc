@@ -8,10 +8,25 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub ignored_services: Vec<String>,
+    #[serde(default = "default_editor")]
+    pub editor: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            ignored_services: Vec::new(),
+            editor: default_editor(),
+        }
+    }
+}
+
+fn default_editor() -> String {
+    "code".to_string()
 }
 
 impl Config {
@@ -29,6 +44,20 @@ impl Config {
             }
             _ => false,
         }
+    }
+
+    /// Argv for opening `root` in the configured editor. A blank or
+    /// whitespace-only value falls back to the default so a hand-edited
+    /// config cannot brick the button.
+    pub fn editor_argv(&self, root: &Path) -> Vec<String> {
+        let editor = if self.editor.trim().is_empty() {
+            default_editor()
+        } else {
+            self.editor.clone()
+        };
+        let mut argv: Vec<String> = editor.split_whitespace().map(str::to_string).collect();
+        argv.push(root.to_string_lossy().into_owned());
+        argv
     }
 }
 
@@ -106,6 +135,48 @@ mod tests {
         assert_eq!(load(&path), config);
 
         std::fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn editor_defaults_and_survives_old_configs() {
+        assert_eq!(Config::default().editor, "code");
+        let base = temp_base("editor-default");
+        std::fs::create_dir_all(&base).expect("mkdir");
+        let path = base.join("config.json");
+
+        // a pre-16c config file has no editor key
+        std::fs::write(&path, r#"{ "ignored_services": ["svc-1"] }"#).expect("write");
+        let cfg = load(&path);
+        assert_eq!(cfg.editor, "code", "missing key gets the default");
+        assert_eq!(cfg.ignored_services, vec!["svc-1"]);
+
+        std::fs::write(&path, r#"{ "editor": "cursor" }"#).expect("write");
+        assert_eq!(load(&path).editor, "cursor");
+
+        std::fs::remove_dir_all(&base).expect("cleanup");
+    }
+
+    #[test]
+    fn editor_argv_splits_and_appends_the_root() {
+        let root = Path::new("/home/brad/Code/portdoc");
+        let mut cfg = Config::default();
+        assert_eq!(
+            cfg.editor_argv(root),
+            vec!["code", "/home/brad/Code/portdoc"]
+        );
+
+        cfg.editor = "code -n".to_string();
+        assert_eq!(
+            cfg.editor_argv(root),
+            vec!["code", "-n", "/home/brad/Code/portdoc"]
+        );
+
+        cfg.editor = "   ".to_string();
+        assert_eq!(
+            cfg.editor_argv(root),
+            vec!["code", "/home/brad/Code/portdoc"],
+            "blank editor falls back to the default"
+        );
     }
 
     #[test]

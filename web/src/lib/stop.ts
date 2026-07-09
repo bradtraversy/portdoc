@@ -8,6 +8,20 @@ export function useRequestStop() {
   return useContext(StopContext)
 }
 
+// App-level like StopDialog, and with a frozen service list: the group that
+// opened it can unmount mid-flow once its services stop and the polled
+// snapshot drops the project.
+export interface StopAllRequest {
+  projectName: string
+  services: Service[]
+}
+
+export const StopAllContext = createContext<(request: StopAllRequest) => void>(() => {})
+
+export function useRequestStopAll() {
+  return useContext(StopAllContext)
+}
+
 export interface StopResult {
   outcome: 'released' | 'still_listening'
 }

@@ -4,6 +4,7 @@ import { conflictedIds, dockerServices, groupRollup, ungroupedServices } from '.
 import { useConfig } from '../lib/config'
 import { Badge } from './ui/badge'
 import { PortChip } from './PortChip'
+import { ProjectActions } from './ProjectActions'
 import { ServiceRow } from './ServiceRow'
 
 function uniqueFrameworks(services: Service[]): string[] {
@@ -77,6 +78,11 @@ export function ProjectGroups({ snapshot, detailed, onProjectOpen }: ProjectGrou
                 <p className="mt-1 truncate text-xs text-muted">{project.description}</p>
               )}
               {rollup(services)}
+              {detailed && (
+                <div className="mt-2">
+                  <ProjectActions project={project} services={services} />
+                </div>
+              )}
             </div>
             {services.map(row)}
           </section>

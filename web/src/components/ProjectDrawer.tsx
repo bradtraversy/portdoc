@@ -4,6 +4,7 @@ import type { DevSnapshot, ProjectGroup, Service } from '../lib/types'
 import { displayName } from '../lib/derive'
 import { useInspect } from '../lib/inspect'
 import { Badge } from './ui/badge'
+import { ProjectActions } from './ProjectActions'
 
 interface ProjectDrawerProps {
   project: ProjectGroup
@@ -69,6 +70,9 @@ export function ProjectDrawer({ project, snapshot, onClose }: ProjectDrawerProps
             <Field label="Last commit" value={project.last_commit_age && `${project.last_commit_age} ago`} plain />
             <Field label="Workspaces" value={project.workspaces?.join('  ')} />
           </dl>
+          <div className="mt-2.5">
+            <ProjectActions project={project} services={services} />
+          </div>
         </div>
 
         {project.scripts && project.scripts.length > 0 && (

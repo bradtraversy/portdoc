@@ -79,6 +79,7 @@ async fn main() {
         .route("/api/ignore", post(api_ignore))
         .route("/api/stop", post(api_stop))
         .route("/api/reveal", post(api_reveal))
+        .route("/api/open", post(api_open))
         .fallback(static_handler);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
@@ -320,10 +321,21 @@ struct RevealRequest {
     path: String,
 }
 
+/// Snapshot paths render with a shortened home ("~/Code/x"); expand the
+/// leading tilde back before touching the filesystem.
+fn expand_home(path: &str) -> std::path::PathBuf {
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Some(home) = dirs::home_dir()
+    {
+        return home.join(rest);
+    }
+    std::path::PathBuf::from(path)
+}
+
 /// Opens a folder in the OS file manager. A browser cannot, so the server
 /// does it - but only for a path that resolves to an existing directory.
 async fn api_reveal(Json(request): Json<RevealRequest>) -> Response {
-    let path = std::path::PathBuf::from(&request.path);
+    let path = expand_home(&request.path);
     let is_dir = std::fs::metadata(&path).ok().map(|m| m.is_dir());
     if let Err(message) = validate_reveal_path(&path, is_dir) {
         return api_error(StatusCode::BAD_REQUEST, message);
@@ -335,6 +347,48 @@ async fn api_reveal(Json(request): Json<RevealRequest>) -> Response {
             format!("could not open folder: {err}"),
         ),
     }
+}
+
+#[derive(serde::Deserialize)]
+struct OpenRequest {
+    path: String,
+}
+
+/// Opens a project root in the configured editor (config `editor`, default
+/// `code`). Same validation as reveal: only existing directories.
+async fn api_open(Json(request): Json<OpenRequest>) -> Response {
+    let path = expand_home(&request.path);
+    let is_dir = std::fs::metadata(&path).ok().map(|m| m.is_dir());
+    if let Err(message) = validate_reveal_path(&path, is_dir) {
+        return api_error(StatusCode::BAD_REQUEST, message);
+    }
+    let cfg = match config::config_path() {
+        Some(config_file) => config::load(&config_file),
+        None => config::Config::default(),
+    };
+    let argv = cfg.editor_argv(&path);
+    match spawn_detached(&argv) {
+        Ok(()) => Json(json!({})).into_response(),
+        Err(err) => api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("could not launch editor '{}': {err}", argv[0]),
+        ),
+    }
+}
+
+/// Spawn without inheriting the server's stdio, and reap the child from a
+/// thread so exited editors never linger as zombies.
+fn spawn_detached(argv: &[String]) -> std::io::Result<()> {
+    let mut child = std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 /// Pure: `is_dir` is None when the path is missing, Some(false) for a file.
@@ -362,6 +416,19 @@ mod tests {
         assert!(validate_reveal_path(Path::new("/home/brad/f.txt"), Some(false)).is_err());
         assert!(validate_reveal_path(Path::new("/nope"), None).is_err());
         assert!(validate_reveal_path(Path::new(""), Some(true)).is_err());
+    }
+
+    #[test]
+    fn expand_home_only_touches_a_leading_tilde() {
+        let home = dirs::home_dir().expect("home dir in tests");
+        assert_eq!(super::expand_home("~/Code/x"), home.join("Code/x"));
+        assert_eq!(super::expand_home("/abs/path"), Path::new("/abs/path"));
+        assert_eq!(super::expand_home("rel/~/odd"), Path::new("rel/~/odd"));
+        assert_eq!(
+            super::expand_home("~"),
+            Path::new("~"),
+            "bare tilde is not a project root"
+        );
     }
 }
 
