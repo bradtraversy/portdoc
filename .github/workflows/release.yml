@@ -16,6 +16,8 @@
 name: Release
 permissions:
   "contents": "write"
+  # OIDC token for Azure Artifact Signing on the Windows leg
+  "id-token": "write"
 
 # This task will run whenever you push a git tag that looks like a version
 # like "1.0.0", "v0.1.0-prerelease.1", "my-app/0.1.0", "releases/v1.0.0", etc.
@@ -109,6 +111,9 @@ jobs:
       matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container && matrix.container.image || null }}
+    # Gives the OIDC token the stable subject repo:bradtraversy/portdoc:environment:release
+    # that the Azure federated credential matches on (tag refs change every release)
+    environment: release
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
@@ -156,6 +161,45 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
+      # Hand-patched (feature 17): Authenticode-sign portdoc.exe via Azure Artifact
+      # Signing, then repack and fix checksums before the manifest is uploaded.
+      # 'dist generate' will wipe this block; re-apply it if the workflow is regenerated.
+      - name: Azure login for signing
+        if: ${{ contains(matrix.targets, 'x86_64-pc-windows-msvc') }}
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Unpack archive for signing
+        if: ${{ contains(matrix.targets, 'x86_64-pc-windows-msvc') }}
+        shell: pwsh
+        run: Expand-Archive -Path target/distrib/portdoc-x86_64-pc-windows-msvc.zip -DestinationPath target/distrib/signing
+      - name: Sign portdoc.exe
+        if: ${{ contains(matrix.targets, 'x86_64-pc-windows-msvc') }}
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: https://eus.codesigning.azure.net/
+          signing-account-name: bradtraversy-signing
+          certificate-profile-name: bradtraversy-public
+          files-folder: ${{ github.workspace }}\target\distrib\signing
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+      - name: Repack signed archive and fix checksums
+        if: ${{ contains(matrix.targets, 'x86_64-pc-windows-msvc') }}
+        shell: pwsh
+        run: |
+          $name = "portdoc-x86_64-pc-windows-msvc.zip"
+          $zip = "target/distrib/$name"
+          Compress-Archive -Path target/distrib/signing/* -DestinationPath $zip -Force
+          Remove-Item -Recurse target/distrib/signing
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Set-Content -NoNewline -Path "$zip.sha256" -Value "$hash *$name`n"
+          jq --arg h $hash --arg n $name '.artifacts[$n].checksums.sha256 = $h' dist-manifest.json | Set-Content dist-manifest.json.new
+          Move-Item -Force dist-manifest.json.new dist-manifest.json
+          jq -r --arg n $name '.artifacts[$n].checksums.sha256' dist-manifest.json
       - id: cargo-dist
         name: Post-build
         # We force bash here just because github makes it really hard to get values up

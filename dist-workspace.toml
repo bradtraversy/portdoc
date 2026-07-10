@@ -21,3 +21,5 @@ install-path = "CARGO_HOME"
 install-updater = false
 # Extra steps to run in the CI build jobs before 'dist build' (builds web/dist for rust-embed)
 github-build-setup = "../build-setup.yml"
+# The release workflow is hand-patched with Authenticode signing (feature 17); regeneration wipes it
+allow-dirty = ["ci"]

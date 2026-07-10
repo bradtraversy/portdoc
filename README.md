@@ -58,6 +58,8 @@ The server binds `127.0.0.1` only; nothing is reachable from the network.
 - **Windows**: the stop action returns "not supported on this platform" -
   process metadata for services owned by other users degrades gracefully to
   unknown, same as on Linux and macOS.
+- Windows binaries are Authenticode-signed (as "Brad Traversy") since v0.1.1,
+  so Smart App Control and SmartScreen accept them.
 - macOS binaries are unsigned; the installer and Homebrew paths avoid
   Gatekeeper quarantine, but a manually downloaded binary may need
   `xattr -d com.apple.quarantine`.
