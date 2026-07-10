@@ -1,0 +1,12 @@
+- name: Install Node
+  uses: actions/setup-node@v4
+  with:
+    node-version: 24
+    cache: npm
+    cache-dependency-path: web/package-lock.json
+- name: Build frontend
+  shell: bash
+  run: cd web && npm ci && npm run build
+- name: Guard embedded UI
+  shell: bash
+  run: test -f web/dist/index.html

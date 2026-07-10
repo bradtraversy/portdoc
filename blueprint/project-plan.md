@@ -46,7 +46,9 @@ recording, debugging, or jumping between projects.
   release so every installed binary has a working dashboard; installers are
   generated with cargo-dist - curl shell installer (Linux/macOS), PowerShell
   installer (Windows), and a Homebrew tap, served from GitHub Releases with
-  `portdoc.dev` redirecting to them later.
+  `portdoc.dev` redirecting to them later. The domain is owned (registered on
+  Namecheap, confirmed 2026-07-09); a public site there is its own later
+  project, and 15c can point install URLs at it once redirects exist.
 
 ## 4. Data - What are we storing?
 
