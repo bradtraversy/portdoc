@@ -82,7 +82,12 @@ was too big, so split it.
   fallback, a dashboard screenshot, and the v0.1 known-limitations note
   (Windows stop returns "not supported"). *Done when:* README renders with all
   three install commands and the screenshot.
-- [ ] **Step 5 - rc prerelease and live checks (post-merge)** - after
+- [ ] **Step 5 - rc prerelease and live checks (post-merge)** *(in progress
+  2026-07-10: v0.1.0-rc.1 released, all jobs green, homebrew correctly
+  skipped; Linux passed - checksum verified, 25 services/4 projects probed,
+  embedded UI real, installer.sh installs and runs. Remaining: macOS
+  installer + dashboard, Windows install.ps1 + vault checklist (the 15b
+  live check), brew install after v0.1.0 since prereleases skip the tap.)* - after
   `/complete` merges to main: bump version to `0.1.0-rc.1` (dist requires the
   tag to match the Cargo version), tag `v0.1.0-rc.1`, push the tag (explicit
   yes), watch the release workflow, then verify: binaries + sha256 checksums

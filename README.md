@@ -23,13 +23,13 @@ Everything runs locally. No accounts, no telemetry.
 **Linux / macOS**
 
 ```sh
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/bradtraversy/portdoc/releases/latest/download/portdoc-installer.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://portdoc.dev/install.sh | sh
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-irm https://github.com/bradtraversy/portdoc/releases/latest/download/portdoc-installer.ps1 | iex
+irm https://portdoc.dev/install.ps1 | iex
 ```
 
 **Homebrew (macOS / Linux)**
