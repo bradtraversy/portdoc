@@ -91,7 +91,7 @@ go on the archived spec).
   about Windows SAC blocking the unsigned exe with "Windows binaries are
   Authenticode-signed (as Brad Traversy) since v0.1.1". *Done when:* README has
   no stale unsigned-Windows warning.
-- [ ] **Step 5 - rc proves signing (post-merge, from main)** - Brad pushes tag
+- [x] **Step 5 - rc proves signing (post-merge, from main)** - Brad pushes tag
   `v0.1.1-rc.1`; pipeline runs. Download the Windows zip from the prerelease,
   verify from Linux: `osslsigncode verify` on the extracted exe shows signer
   CN "Brad Traversy" and a valid timestamp, and the published `.sha256` matches
