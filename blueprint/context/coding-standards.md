@@ -40,8 +40,7 @@
 - Static assets served as-is: `web/public/`
 - Production frontend build: `web/dist` (generated, ignored)
 
-> TODO: component folder structure inside `web/src/` (for example
-> `components/[feature]/`) once there is more than one screen.
+- Component folder structure: Keep `web/src/components/` flat for views and domain components. Reusable/generic UI components belong in `web/src/components/ui/`.
 
 ## Naming
 
@@ -67,9 +66,9 @@
   the React app renders them
 - The frontend talks to the backend over HTTP endpoints served by the binary
 
-> TODO: API shape (route prefix, JSON contract, how the binary serves `web/dist`
-> in production vs the Vite dev server in development) is undecided; define it
-> with the first data feature.
+- The backend serves API endpoints under the `/api/` prefix (e.g., `/api/snapshot`, `/api/health`).
+- The JSON contract is strictly typed by `DevSnapshot` and related structures.
+- Production builds embed `web/dist` inside the binary; debug builds read it dynamically from disk.
 
 ## Error Handling
 
