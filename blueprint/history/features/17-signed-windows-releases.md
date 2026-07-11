@@ -101,7 +101,7 @@ go on the archived spec).
   release wears the Latest badge, the Homebrew formula bumps to 0.1.1,
   `portdoc.dev/install.sh` still installs (latest-URL now resolves to v0.1.1),
   and the signature verifies on the final Windows asset.
-- [ ] **Step 7 - Windows VM retest (manual)** - fresh Win11 VM with Smart App
+- [x] **Step 7 - Windows VM retest (manual)** - fresh Win11 VM with Smart App
   Control on: `irm portdoc.dev/install.ps1 | iex`, then run `portdoc`. *Done
   when:* no SAC block, the dashboard loads at `127.0.0.1:7788` with real
   services, and stopping is correctly absent (typed "not supported"). The old
