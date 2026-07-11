@@ -97,7 +97,7 @@ go on the archived spec).
   CN "Brad Traversy" and a valid timestamp, and the published `.sha256` matches
   the signed zip. Iterate here until green. *Done when:* signature and checksum
   both verify on the rc assets.
-- [ ] **Step 6 - public v0.1.1** - Brad pushes tag `v0.1.1`. *Done when:* the
+- [x] **Step 6 - public v0.1.1** - Brad pushes tag `v0.1.1`. *Done when:* the
   release wears the Latest badge, the Homebrew formula bumps to 0.1.1,
   `portdoc.dev/install.sh` still installs (latest-URL now resolves to v0.1.1),
   and the signature verifies on the final Windows asset.
